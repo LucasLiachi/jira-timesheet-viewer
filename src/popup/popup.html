@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Jira Timesheet Viewer</title>
+    <style>
+      body { width: 320px; margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; color: #172b4d; }
+      main { padding: 16px; }
+      h1 { font-size: 15px; margin: 0 0 4px; }
+      #who { color: #6b778c; font-size: 12px; margin: 0 0 12px; }
+      label { display: block; margin-bottom: 10px; font-size: 13px; }
+      input {
+        display: block; width: 100%; box-sizing: border-box; margin-top: 4px;
+        padding: 6px 8px; border: 1px solid #dfe1e6; border-radius: 3px;
+      }
+      .connect-disclosure { color: #6b778c; font-size: 12px; }
+      button {
+        padding: 7px 14px; border: none; border-radius: 3px; background: #0052cc;
+        color: #fff; cursor: pointer; font-size: 13px; width: 100%;
+      }
+      .connect-status { font-size: 12px; min-height: 16px; color: #de350b; }
+      .links { margin-top: 12px; display: flex; justify-content: space-between; font-size: 12px; }
+      .links a { color: #6b778c; text-decoration: none; }
+      .links a:hover { color: #0052cc; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Jira Timesheet Viewer</h1>
+      <p id="who">Not connected</p>
+
+      <div id="connect-container"></div>
+
+      <button id="open-panel" type="button" hidden>Open My Items</button>
+
+      <p class="links">
+        <a href="#" id="open-help">How it works</a>
+        <a href="#" id="open-settings">Settings</a>
+      </p>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

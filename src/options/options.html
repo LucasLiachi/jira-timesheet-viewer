@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Jira Timesheet Viewer — Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Settings</h1>
+
+      <!-- Read-only: this page observes the connection, it doesn't create one.
+           Base URL / e-mail / API token are entered on the popup's Connect form,
+           never on this page — kept in chrome.storage.session (memory-only,
+           cleared on browser close), never in chrome.storage.local or on disk. -->
+      <p id="status" role="status">Not connected</p>
+
+      <section>
+        <h2>Preferences</h2>
+        <label>Working hours per day
+          <input id="workdayHours" type="number" min="1" max="24" step="0.5" value="8" />
+        </label>
+        <small>Saved for the upcoming Timesheet view — the current My Items list doesn't use it yet.</small>
+      </section>
+
+      <section>
+        <h2>Data</h2>
+        <button id="disconnect" type="button">Disconnect</button>
+      </section>
+
+      <div class="actions">
+        <button id="save" type="button">Save</button>
+      </div>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

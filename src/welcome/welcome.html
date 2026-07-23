@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Jira Timesheet Viewer — Getting started</title>
+    <style>
+      :root {
+        --bg: #ffffff; --bg-subtle: #f4f5f7; --border: #dfe1e6;
+        --text: #172b4d; --text-subtle: #6b778c; --accent: #0052cc;
+        --success: #36b37e; --radius: 4px;
+        --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root { --bg: #1d2125; --bg-subtle: #22272b; --border: #38414a;
+                 --text: #b6c2cf; --text-subtle: #8c9bab; --accent: #579dff; }
+      }
+      body { font-family: var(--font); background: var(--bg); color: var(--text); margin: 0; }
+      main { max-width: 640px; margin: 0 auto; padding: 40px 24px 64px; }
+      h1 { font-size: 24px; }
+      h2 { font-size: 16px; margin-top: 36px; }
+      p, li { line-height: 1.55; color: var(--text); }
+      .lede { color: var(--text-subtle); font-size: 15px; }
+      ol, ul { padding-left: 20px; }
+      code {
+        background: var(--bg-subtle); padding: 1px 6px; border-radius: 3px;
+        font-size: 13px;
+      }
+      .card {
+        background: var(--bg-subtle); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 16px 20px; margin-top: 12px;
+      }
+      .card.privacy { border-left: 3px solid var(--success); }
+      .card.tip { border-left: 3px solid var(--accent); }
+      table { border-collapse: collapse; width: 100%; margin-top: 8px; font-size: 13px; }
+      th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+      th { color: var(--text-subtle); font-weight: 600; }
+      footer { margin-top: 48px; color: var(--text-subtle); font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Jira Timesheet Viewer</h1>
+      <p class="lede">Search what's assigned to you in Jira for any date range, and see what you've already logged on each day — without leaving the browser. This reads worklogs, it doesn't create them: logging time still happens in Jira itself, one click away.</p>
+
+      <h2>1. Create a Jira API token</h2>
+      <ol>
+        <li>Go to <code>id.atlassian.com → Security → API tokens</code>.</li>
+        <li>Create a token and copy it — you won't be able to see it again.</li>
+      </ol>
+
+      <h2>2. Connect</h2>
+      <ol>
+        <li>Click the extension icon in your browser toolbar.</li>
+        <li>Enter your Jira base URL (e.g. <code>https://your-domain.atlassian.net</code>), your e-mail and the API token.</li>
+        <li>Click <strong>Connect</strong>.</li>
+      </ol>
+
+      <div class="card privacy">
+        <strong>This is never written to disk.</strong>
+        <p>Your base URL, e-mail and API token are kept in the browser's memory-only session storage for as long as this browser window stays open. They are never synced, never sent anywhere except directly to your own Jira site, and disappear the moment you close the browser — at which point you'll be asked to connect again.</p>
+      </div>
+
+      <div class="card tip">
+        <strong>Tip: keep the token in your password manager</strong>
+        <p>The extension itself never saves this — that's deliberate. But you can save time by keeping it in a password vault of your own:</p>
+        <ul>
+          <li>Your browser's own password manager might offer to save it after you click Connect (look for a "Save password?" prompt, or a key icon in the token field next time). This isn't guaranteed to trigger inside an extension popup — try it and see.</li>
+          <li>Third-party managers (1Password, Bitwarden, etc.) can't autofill directly into this form — Chrome doesn't let one extension reach into another extension's page. Instead, save the base URL, e-mail and token as a regular entry in your vault, then copy and paste them here when asked. Since you only reconnect once per browser session, this is rarely needed.</li>
+        </ul>
+      </div>
+
+      <h2>3. Find your items</h2>
+      <ol>
+        <li>Click <strong>Open My Items</strong> to open the side panel.</li>
+        <li>On the small calendar, click a start day and an end day to set your period. The search always brings back everything assigned to you in that window, due date or not.</li>
+        <li>(Optional) Click <strong>Projects</strong>, below the calendar, to narrow the search to one or more projects — checkboxes, more than one at a time. Leave everything checked to search across all of them. Unlike the two filters below it, this one changes the search itself, not just what's shown.</li>
+        <li>The list below fills in, grouped by the day you logged time — each day shows the issues you worked on, the hours, and the worklog's description underneath, if you wrote one. Days with nothing logged show up too, instead of disappearing.</li>
+        <li>(Optional) Click <strong>Status</strong>, below Projects, to narrow the list you already have to one or more statuses — this doesn't search Jira again, it just re-shows what's already there.</li>
+        <li>(Optional) Type in the search box below Status to narrow the list further by key or summary — also without searching Jira again.</li>
+        <li>At the bottom, <strong>Not logged in this period</strong> lists everything assigned to you in that window with no worklog at all — the things that still need a Log work entry.</li>
+        <li>Click any issue to open it on your Jira site, in a new tab (reused for the next issue you click) — that's where you use <strong>Log work</strong> as usual.</li>
+        <li>(Optional) Click <strong>Open summary in new tab</strong>, below all the filters, for a plain read-only report of the same day-grouped list in its own browser tab — no empty days, no "Not logged" section, just what actually has time logged against it. Handy for copying, reviewing or printing outside the narrow side panel.</li>
+      </ol>
+
+      <h2>Permissions this extension asks for</h2>
+      <table>
+        <tr><th>Permission</th><th>Why</th></tr>
+        <tr><td><code>storage</code></td><td>Save your preferences, keep your connection in memory-only session storage while the browser is open (see above — never written to disk), and briefly hand data to the summary tab when you click "Open summary in new tab".</td></tr>
+        <tr><td><code>sidePanel</code></td><td>Show the My Items list in the browser's side panel.</td></tr>
+        <tr><td>Access to <code>*.atlassian.net</code></td><td>Talk directly to your Jira Cloud site to search your assigned issues, list your projects (for the project filter) and read your own worklogs. Nothing is ever written back to Jira.</td></tr>
+      </table>
+
+      <footer>
+        This extension is read-only: it never creates, edits or deletes anything in Jira, including worklogs — it only reads them.
+      </footer>
+    </main>
+  </body>
+</html>

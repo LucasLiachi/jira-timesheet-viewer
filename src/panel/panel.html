@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Jira Timesheet Viewer</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header class="shell-header">
+      <h1>Jira Timesheet Viewer</h1>
+      <div class="header-actions">
+        <span id="who">Not connected</span>
+        <button id="disconnect" type="button" hidden>Disconnect</button>
+        <button id="open-settings" type="button" title="Settings" aria-label="Settings">&#9881;&#xFE0E;</button>
+      </div>
+    </header>
+
+    <div id="connect-container"></div>
+
+    <main id="app" hidden>
+      <section class="calendar-section">
+        <div class="calendar-toolbar">
+          <button id="prev-month" type="button" aria-label="Previous month">&lsaquo;</button>
+          <span id="month-label"></span>
+          <button id="next-month" type="button" aria-label="Next month">&rsaquo;</button>
+        </div>
+        <div id="calendar"></div>
+        <div id="project-filter"></div>
+        <div id="status-filter"></div>
+        <div class="text-filter">
+          <input id="work-item-filter" type="text" placeholder="Search by key or summary…" aria-label="Search work items" />
+        </div>
+        <button id="open-summary" type="button" class="summary-button" disabled title="Open a summary of logged worklogs in a new tab">
+          Open summary in new tab
+        </button>
+        <p id="range-hint" class="hint"></p>
+      </section>
+
+      <section class="list-section">
+        <p id="list-status" class="hint"></p>
+        <div id="list"></div>
+      </section>
+    </main>
+
+    <script type="module" src="panel.js"></script>
+  </body>
+</html>

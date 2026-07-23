@@ -1,0 +1,85 @@
+:root {
+  --bg: #ffffff;
+  --bg-subtle: #f4f5f7;
+  --border: #dfe1e6;
+  --text: #172b4d;
+  --text-subtle: #6b778c;
+  --accent: #0052cc;
+  --radius: 3px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1d2125;
+    --bg-subtle: #22272b;
+    --border: #38414a;
+    --text: #b6c2cf;
+    --text-subtle: #8c9bab;
+    --accent: #579dff;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  margin: 0;
+  font-size: 14px;
+}
+
+main { max-width: 720px; margin: 0 auto; padding: 32px 24px 64px; }
+
+h1 { font-size: 20px; margin: 0; }
+
+.range-label { font-size: 15px; color: var(--text); margin: 6px 0 0; }
+.filters-label { font-size: 13px; color: var(--text-subtle); margin: 4px 0 0; }
+
+header { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 8px; }
+
+.item-group-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  padding: 8px 6px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius);
+  margin-top: 20px;
+}
+
+.item-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.item-key { color: var(--accent); font-weight: 600; }
+.item-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-due { color: var(--text-subtle); }
+.item-hours { color: var(--text-subtle); text-align: right; }
+
+.item-worklog-comment {
+  grid-column: 2 / -1;
+  color: var(--text-subtle);
+  font-size: 13px;
+  font-style: italic;
+  padding: 0 6px 6px;
+}
+
+.status-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.status-chip.new { background: var(--bg-subtle); color: var(--text-subtle); }
+.status-chip.indeterminate { background: #deebff; color: var(--accent); }
+.status-chip.done { background: #e3fcef; color: #006644; }
+
+.empty-state { padding: 32px 4px; color: var(--text-subtle); }
