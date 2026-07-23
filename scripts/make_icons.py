@@ -15,12 +15,14 @@ from PIL import Image, ImageDraw
 ACCENT = (0, 82, 204, 255)  # --accent from the UI spec (Jira blue, #0052CC)
 WHITE = (255, 255, 255, 255)
 SIZES = (16, 32, 48, 128)
+SUPERSAMPLE = 8  # render this many times larger, then downsample for anti-aliased edges
 
 ROOT = Path(__file__).resolve().parent.parent
 ICONS_DIR = ROOT / "icons"
 
 
-def make_icon(size: int) -> Image.Image:
+def make_icon(target_size: int) -> Image.Image:
+    size = target_size * SUPERSAMPLE
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
@@ -51,7 +53,7 @@ def make_icon(size: int) -> Image.Image:
     p3 = (size * 0.73, body_mid_y - size * 0.15)
     draw.line([p1, p2, p3], fill=ACCENT, width=stroke, joint="curve")
 
-    return img
+    return img.resize((target_size, target_size), Image.LANCZOS)
 
 
 def main() -> None:
