@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""Generate placeholder toolbar icons (16/32/48/128) so the extension loads.
+"""Generate toolbar/store icons (16/32/48/128) for Jira Timesheet Viewer.
 
-These are intentionally plain — a solid accent square with a checkmark — so
-nobody mistakes them for final branding. Replace icons/*.png with real
-artwork before submitting to the Chrome Web Store (see CLAUDE.md, "Chrome
-Web Store" section, store listing assets).
+Renders a flat calendar-page mark (accent header strip + checkmark on the
+body) in the extension's accent color (see src/panel/panel.css --accent).
+Regenerate after any change to the design below:
 
-Usage:
     python scripts/make_icons.py
 """
 
@@ -14,8 +12,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-ACCENT = (0, 82, 204, 255)  # --accent from the UI spec
-MARK = (255, 255, 255, 255)
+ACCENT = (0, 82, 204, 255)  # --accent from the UI spec (Jira blue, #0052CC)
+WHITE = (255, 255, 255, 255)
 SIZES = (16, 32, 48, 128)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -26,15 +24,32 @@ def make_icon(size: int) -> Image.Image:
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    radius = max(2, size // 6)
-    draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=ACCENT)
+    bg_radius = max(2, round(size * 0.22))
+    draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=bg_radius, fill=ACCENT)
 
-    # Simple checkmark, scaled to the icon size.
-    stroke = max(1, size // 8)
-    p1 = (size * 0.24, size * 0.52)
-    p2 = (size * 0.44, size * 0.72)
-    p3 = (size * 0.78, size * 0.30)
-    draw.line([p1, p2, p3], fill=MARK, width=stroke, joint="curve")
+    # Calendar page (white), inset from the background square.
+    pad = size * 0.16
+    page_radius = max(1, round(size * 0.10))
+    page_top = size * 0.20
+    page_box = [pad, page_top, size - pad, size - pad]
+    draw.rounded_rectangle(page_box, radius=page_radius, fill=WHITE)
+
+    # Header strip across the top of the page, same accent as the
+    # background, rounded only on its top corners so it reads as a flat
+    # calendar header sitting on top of the white body.
+    header_bottom = page_top + size * 0.18
+    header_box = [pad, page_top, size - pad, header_bottom]
+    draw.rounded_rectangle(
+        header_box, radius=page_radius, corners=(True, True, False, False), fill=ACCENT
+    )
+
+    # Checkmark on the white body, below the header — the "logged" mark.
+    stroke = max(1, round(size * 0.09))
+    body_mid_y = (header_bottom + (size - pad)) / 2
+    p1 = (size * 0.30, body_mid_y)
+    p2 = (size * 0.44, body_mid_y + size * 0.11)
+    p3 = (size * 0.73, body_mid_y - size * 0.15)
+    draw.line([p1, p2, p3], fill=ACCENT, width=stroke, joint="curve")
 
     return img
 

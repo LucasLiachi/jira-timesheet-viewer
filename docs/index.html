@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jira Timesheet Viewer — Privacy Policy</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1b1f24;
+    --muted: #57606a;
+    --accent: #0052cc;
+    --border: #d7dce1;
+    --card: #f6f8fa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --muted: #9aa5b1;
+      --accent: #4c9aff;
+      --border: #2d333b;
+      --card: #161b22;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+  h1 {
+    font-size: 1.6rem;
+    margin-bottom: 4px;
+  }
+  .meta {
+    color: var(--muted);
+    font-size: 0.92rem;
+    margin-bottom: 32px;
+  }
+  h2 {
+    font-size: 1.1rem;
+    margin-top: 2.2em;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+  p, li { color: var(--fg); }
+  ul { padding-left: 1.3em; }
+  li { margin-bottom: 0.5em; }
+  .summary {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 24px 0;
+  }
+  .summary p:first-child { margin-top: 0; }
+  .summary p:last-child { margin-bottom: 0; }
+  a { color: var(--accent); }
+  code {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+    font-size: 0.9em;
+  }
+  footer {
+    margin-top: 3em;
+    padding-top: 1em;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Jira Timesheet Viewer — Privacy Policy</h1>
+  <p class="meta">Effective date: July 23, 2026 · Contact: <a href="mailto:lucasliachi@gmail.com">lucasliachi@gmail.com</a></p>
+
+  <div class="summary">
+    <p><strong>In short:</strong> Jira Timesheet Viewer is a read-only browser extension with no backend server of its own. It talks directly, over HTTPS, from your browser to the Jira site you configure. The developer never receives, stores, or has access to your Jira credentials or Jira data — nothing passes through any server operated by the developer.</p>
+    <p>The extension is single-purpose: search and display Jira issues assigned to you in a date range, grouped by the day you logged work on them. It does not create, edit, or delete anything in Jira.</p>
+  </div>
+
+  <h2>What data the extension handles</h2>
+  <ul>
+    <li><strong>Jira connection details</strong> — the Jira site URL, your account email, and an API token you generate yourself and enter into the extension's connect form.</li>
+    <li><strong>Jira content</strong> — issues assigned to you, their status/project, and worklogs (time entries and their descriptions) for the date range you choose, fetched directly from your Jira site via the official Jira REST API.</li>
+    <li><strong>Non-sensitive preferences</strong> — settings you configure in the extension, such as expected working hours per day.</li>
+  </ul>
+  <p>The extension never collects analytics, telemetry, usage statistics, or any data unrelated to displaying your own Jira worklogs.</p>
+
+  <h2>Where this data is stored</h2>
+  <ul>
+    <li><strong>Connection details</strong> (site URL, email, API token) are kept only in <code>chrome.storage.session</code> — an in-memory area managed by your browser. They are <strong>never written to disk</strong> and are automatically erased when you fully close the browser, or immediately if you click "Disconnect".</li>
+    <li><strong>Jira content</strong> (issues, worklogs) is held in memory for as long as the side panel is open, purely to render the list on screen. When you use "Open summary in new tab", the currently displayed results are handed off once through <code>chrome.storage.session</code> to render the summary page, then are subject to the same session-only lifetime described above.</li>
+    <li><strong>Preferences</strong> (e.g. working hours) are stored in <code>chrome.storage.local</code>, which persists on your device like any other browser extension setting, until you change it or remove the extension. This storage never contains credentials or Jira content.</li>
+  </ul>
+
+  <h2>Where this data is sent</h2>
+  <p>Your connection details are used exclusively to authenticate directly against the Jira site you specified, using Jira's own REST API over HTTPS. The extension has <strong>no backend server</strong>: it is not sent to, logged by, or made available to the developer or to any third party, advertiser, or data broker. No data collected by this extension is used for advertising or sold to anyone.</p>
+
+  <h2>Browser permissions</h2>
+  <ul>
+    <li><code>storage</code> — to hold your session connection, your preferences, and the one-time summary handoff described above.</li>
+    <li><code>sidePanel</code> — to display the main search UI in the browser's side panel.</li>
+    <li>Host permission for your Jira site (<code>https://*.atlassian.net/*</code>, or the specific Data Center origin you configure) — to call the Jira REST API directly from your browser.</li>
+  </ul>
+
+  <h2>Your controls</h2>
+  <ul>
+    <li>Click <strong>Disconnect</strong> (in the popup or Settings) at any time to immediately clear the stored connection.</li>
+    <li>Closing the browser fully clears the connection automatically, since it only ever lived in session memory.</li>
+    <li>Uninstalling the extension removes all data it stored, including preferences.</li>
+    <li>Because the extension has no server, there is no remote account or remote copy of your data for the developer to access, export, or delete on your behalf — everything lives in your own browser and your own Jira site.</li>
+  </ul>
+
+  <h2>Children's privacy</h2>
+  <p>This extension is a productivity tool for Jira users and is not directed at children. It does not knowingly collect data from children.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If this policy changes, the "Effective date" above will be updated. Material changes will also be noted in the extension's store listing.</p>
+
+  <footer>
+    Jira Timesheet Viewer is an independent, open-source project and is not affiliated with or endorsed by Atlassian. Source code: <a href="https://github.com/LucasLiachi/jira-timesheet-viewer">github.com/LucasLiachi/jira-timesheet-viewer</a>.
+  </footer>
+</main>
+</body>
+</html>
