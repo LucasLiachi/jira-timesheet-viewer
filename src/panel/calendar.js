@@ -3,7 +3,7 @@
 // lives in panel.js — this module only knows how to draw a month and report
 // which date was clicked.
 
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function monthLabel(year, month) {
   return new Date(Date.UTC(year, month, 1)).toLocaleDateString('en-US', {
@@ -26,8 +26,8 @@ export function renderMonth(container, { year, month, range, pendingStart, today
   }
 
   const firstOfMonth = new Date(Date.UTC(year, month, 1));
-  // Monday-first week: getUTCDay() is 0=Sun..6=Sat.
-  const leadingBlanks = (firstOfMonth.getUTCDay() + 6) % 7;
+  // Sunday-first week: getUTCDay() already returns 0=Sun..6=Sat directly.
+  const leadingBlanks = firstOfMonth.getUTCDay();
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 
   for (let i = 0; i < leadingBlanks; i++) {

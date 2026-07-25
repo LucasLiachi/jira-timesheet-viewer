@@ -4,9 +4,16 @@ import { request } from './messaging.js';
  * Mounts the shared Connect form into `container`. This is the only place in
  * the UI that ever touches the base URL / e-mail / API token — see
  * SKILL.md "Non-negotiables": it's handed to the service worker once via
- * CONNECT and forgotten by this form immediately. The service worker keeps it
- * in chrome.storage.session (memory-only, cleared when the browser closes,
- * never written to disk) — not in this form, and not in chrome.storage.local.
+ * CONNECT and forgotten by this form immediately. By default the service
+ * worker keeps it in chrome.storage.session only (memory-only, cleared when
+ * the browser closes, never written to disk) — not in this form, and not in
+ * chrome.storage.local.
+ *
+ * Checking "Stay connected on this device" additionally has the service
+ * worker encrypt the token (AES-GCM, non-extractable key held in IndexedDB —
+ * see ../lib/secure-store.js) and persist the ciphertext in
+ * chrome.storage.local, so the connection survives a full browser restart.
+ * Unchecked (the default), behaviour is unchanged from before this existed.
  *
  * The `autocomplete` hints below are for the user's own password manager, not
  * for us — see README.md "Usando um gerenciador de senhas". Whether a given
@@ -27,7 +34,14 @@ export function mountConnectForm(container, { onConnected } = {}) {
       </label>
       <p class="connect-disclosure">
         Create a token at id.atlassian.com under Security &rarr; API tokens.
-        Kept in memory for this browser session only — cleared when you close the browser, never written to disk.
+        Kept in memory for this browser session by default — never written to disk unless you check the box below.
+      </p>
+      <label class="connect-remember">
+        <input name="remember" type="checkbox" />
+        Stay connected on this device
+      </label>
+      <p class="connect-remember-hint">
+        Encrypts the token with a key that only exists in this browser profile — useless if copied elsewhere, and erased on Disconnect.
       </p>
       <button type="submit">Connect</button>
       <p class="connect-status" role="status"></p>
@@ -48,6 +62,7 @@ export function mountConnectForm(container, { onConnected } = {}) {
         baseUrl: String(data.get('baseUrl') ?? '').trim(),
         email: String(data.get('email') ?? '').trim(),
         token: String(data.get('token') ?? ''),
+        remember: data.get('remember') === 'on',
       });
       form.reset();
       onConnected?.(result);

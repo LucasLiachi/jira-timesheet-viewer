@@ -13,6 +13,7 @@ const calendarEl = $('calendar');
 const monthLabelEl = $('month-label');
 const projectFilterEl = $('project-filter');
 const statusFilterEl = $('status-filter');
+const issueTypeFilterEl = $('issue-type-filter');
 const workItemFilterInput = $('work-item-filter');
 const summaryBtn = $('open-summary');
 const rangeHint = $('range-hint');
@@ -71,10 +72,17 @@ const state = {
   selectedStatuses: new Set(),
   statusFilterOpen: false,
 
-  // Work item filter — last of the three, a plain text sub-filter (not a
-  // checkbox popover like the other two, since issues aren't a small
+  // Issue type filter — same client-side sub-filter pattern as status,
+  // just over `issueType` instead of `statusName`. Sits after status and
+  // before the work item text filter.
+  issueTypeOptions: [],
+  selectedIssueTypes: new Set(),
+  issueTypeFilterOpen: false,
+
+  // Work item filter — last of the four, a plain text sub-filter (not a
+  // checkbox popover like the others, since issues aren't a small
   // enumerable set) matching against key or summary. Client-side only, same
-  // as the status filter.
+  // as the status and issue type filters.
   workItemQuery: '',
 };
 
@@ -97,6 +105,7 @@ async function refreshConnection() {
     renderCalendar();
     renderProjectFilter();
     renderStatusFilter();
+    renderIssueTypeFilter();
   }
 }
 
@@ -245,6 +254,43 @@ function resetStatusFilterFromItems() {
   state.selectedStatuses = new Set(names);
 }
 
+function renderIssueTypeFilter() {
+  renderMultiSelect(issueTypeFilterEl, {
+    label: 'Type',
+    options: state.issueTypeOptions,
+    selected: state.selectedIssueTypes,
+    open: state.issueTypeFilterOpen,
+    onToggleOpen: handleIssueTypeToggleOpen,
+    onToggleValue: handleIssueTypeToggleValue,
+    onToggleAll: handleIssueTypeToggleAll,
+    emptyLabel: 'Search a period to see item types.',
+  });
+}
+
+function handleIssueTypeToggleOpen() {
+  state.issueTypeFilterOpen = !state.issueTypeFilterOpen;
+  renderIssueTypeFilter();
+}
+
+function handleIssueTypeToggleValue(value) {
+  if (state.selectedIssueTypes.has(value)) state.selectedIssueTypes.delete(value);
+  else state.selectedIssueTypes.add(value);
+  renderIssueTypeFilter();
+  renderList();
+}
+
+function handleIssueTypeToggleAll(makeSelected) {
+  state.selectedIssueTypes = makeSelected ? new Set(state.issueTypeOptions.map((o) => o.value)) : new Set();
+  renderIssueTypeFilter();
+  renderList();
+}
+
+function resetIssueTypeFilterFromItems() {
+  const names = [...new Set(state.items.map((item) => item.issueType).filter(Boolean))].sort();
+  state.issueTypeOptions = names.map((name) => ({ value: name, label: name }));
+  state.selectedIssueTypes = new Set(names);
+}
+
 // Close whichever filter popover is open when the user clicks outside it.
 // Uses composedPath() (the DOM path captured at dispatch time), not
 // contains(), because the checkbox/button the user just clicked is replaced
@@ -260,6 +306,10 @@ document.addEventListener('click', (e) => {
   if (state.statusFilterOpen && !path.includes(statusFilterEl)) {
     state.statusFilterOpen = false;
     renderStatusFilter();
+  }
+  if (state.issueTypeFilterOpen && !path.includes(issueTypeFilterEl)) {
+    state.issueTypeFilterOpen = false;
+    renderIssueTypeFilter();
   }
 });
 
@@ -288,6 +338,7 @@ async function runSearch() {
     state.items = result.issues;
     state.baseUrl = result.baseUrl || state.baseUrl;
     resetStatusFilterFromItems();
+    resetIssueTypeFilterFromItems();
   } catch (err) {
     if (err.code === 'NOT_CONNECTED') {
       await refreshConnection();
@@ -299,6 +350,7 @@ async function runSearch() {
     state.loading = false;
     renderCalendar();
     renderStatusFilter();
+    renderIssueTypeFilter();
     renderList();
   }
 }
@@ -309,6 +361,7 @@ async function runSearch() {
 // visible".
 function getVisibleItems() {
   let visibleItems = state.items.filter((item) => state.selectedStatuses.has(item.statusName));
+  visibleItems = visibleItems.filter((item) => state.selectedIssueTypes.has(item.issueType));
   if (state.workItemQuery) {
     visibleItems = visibleItems.filter(
       (item) =>
@@ -351,27 +404,35 @@ function renderList() {
     return;
   }
 
+  if (state.selectedIssueTypes.size === 0) {
+    listStatus.textContent = 'Select at least one item type to show items.';
+    return;
+  }
+
   listStatus.textContent = 'Grouped by day logged. Click an issue to open it in Jira.';
   summaryBtn.disabled = false;
 
   const visibleItems = getVisibleItems();
 
-  // One group per day in the picked range, oldest first, each showing the
-  // issues with a worklog that day, hours logged on each, and the worklog
-  // description(s) if any were entered. Days with nothing logged still
-  // render — a missing day should be visible, not silently skipped.
+  // One group per day in the picked range, oldest first, each showing
+  // every worklog logged that day across all issues, in the order they
+  // were actually logged — not grouped by issue, so a worklog on one issue
+  // interleaves with worklogs on other issues instead of staying block by
+  // block. Days with nothing logged still render — a missing day should be
+  // visible, not silently skipped.
   for (const day of enumerateDates(state.range.from, state.range.to)) {
-    const dayItems = visibleItems.filter((item) => (item.logsByDay?.[day]?.seconds ?? 0) > 0);
-    const dayTotalSeconds = dayItems.reduce((sum, item) => sum + item.logsByDay[day].seconds, 0);
+    const dayEntries = collectDayEntries(visibleItems, day);
+    const uniqueItemCount = new Set(dayEntries.map(({ item }) => item.key)).size;
+    const dayTotalSeconds = dayEntries.reduce((sum, { entry }) => sum + entry.seconds, 0);
 
     const title =
-      dayItems.length > 0
-        ? `${formatShortDate(day)} · ${dayItems.length} ${dayItems.length === 1 ? 'item' : 'items'} · ${(
+      dayEntries.length > 0
+        ? `${formatShortDate(day)} · ${uniqueItemCount} ${uniqueItemCount === 1 ? 'item' : 'items'} · ${(
             dayTotalSeconds / 3600
           ).toFixed(1)}h`
         : `${formatShortDate(day)} · No worklogs`;
 
-    listEl.appendChild(renderGroup(title, dayItems, (item) => item.logsByDay[day]));
+    listEl.appendChild(renderGroup(title, dayEntries));
   }
 
   // Everything assigned to you in this period with zero logged time across
@@ -382,14 +443,32 @@ function renderList() {
     return total === 0;
   });
   listEl.appendChild(
-    renderGroup(`Not logged in this period (${notLogged.length})`, notLogged, (item) => ({
-      seconds: item.estimateSeconds,
-      comments: [],
-    }))
+    renderGroup(
+      `Not logged in this period (${notLogged.length})`,
+      notLogged.map((item) => ({ item, entry: { seconds: item.estimateSeconds, comment: '' } }))
+    )
   );
 }
 
-function renderGroup(title, items, getEntry) {
+// Flattens every visible issue's worklogs for `day` into one list, sorted
+// by the worklog's own timestamp. The unit here is a worklog, not an
+// issue — the same issue can log more than once in a day, and each of
+// those needs to interleave with other issues' worklogs by time rather
+// than staying grouped under one row per issue.
+function collectDayEntries(visibleItems, day) {
+  const dayEntries = [];
+  for (const item of visibleItems) {
+    const dayLog = item.logsByDay?.[day];
+    if (!dayLog) continue;
+    for (const entry of dayLog.entries) {
+      dayEntries.push({ item, entry });
+    }
+  }
+  dayEntries.sort((a, b) => a.entry.started - b.entry.started);
+  return dayEntries;
+}
+
+function renderGroup(title, dayEntries) {
   const wrap = document.createElement('div');
   const header = document.createElement('div');
   header.className = 'item-group-header';
@@ -397,15 +476,15 @@ function renderGroup(title, items, getEntry) {
   wrap.appendChild(header);
 
   const today = todayISO(state.timeZone);
-  for (const item of items) {
-    wrap.appendChild(renderItemRow(item, getEntry(item), today));
+  for (const { item, entry } of dayEntries) {
+    wrap.appendChild(renderWorklogRow(item, entry, today));
   }
   return wrap;
 }
 
-function renderItemRow(item, entry, today) {
+function renderWorklogRow(item, entry, today) {
   const seconds = entry?.seconds ?? 0;
-  const comments = entry?.comments ?? [];
+  const comment = entry?.comment ?? '';
 
   const row = document.createElement('div');
   const overdue = item.due && item.due < today && item.statusCategory !== 'done';
@@ -421,7 +500,7 @@ function renderItemRow(item, entry, today) {
     <span class="item-hours">${seconds ? (seconds / 3600).toFixed(1) + 'h' : '—'}</span>
   `;
 
-  for (const comment of comments) {
+  if (comment) {
     const commentEl = document.createElement('div');
     commentEl.className = 'item-worklog-comment';
     commentEl.textContent = comment;
@@ -452,6 +531,9 @@ function buildFilterSummary() {
   if (state.selectedStatuses.size < state.statusOptions.length) {
     parts.push(`Status: ${[...state.selectedStatuses].sort().join(', ')}`);
   }
+  if (state.selectedIssueTypes.size < state.issueTypeOptions.length) {
+    parts.push(`Type: ${[...state.selectedIssueTypes].sort().join(', ')}`);
+  }
   const query = workItemFilterInput.value.trim();
   if (query) {
     parts.push(`Search: "${query}"`);
@@ -468,22 +550,23 @@ function buildDaySummaries() {
   const days = [];
 
   for (const day of enumerateDates(state.range.from, state.range.to)) {
-    const dayItems = visibleItems.filter((item) => (item.logsByDay?.[day]?.seconds ?? 0) > 0);
-    if (dayItems.length === 0) continue;
+    const dayEntries = collectDayEntries(visibleItems, day);
+    if (dayEntries.length === 0) continue;
 
-    const totalSeconds = dayItems.reduce((sum, item) => sum + item.logsByDay[day].seconds, 0);
+    const uniqueItemCount = new Set(dayEntries.map(({ item }) => item.key)).size;
+    const totalSeconds = dayEntries.reduce((sum, { entry }) => sum + entry.seconds, 0);
     days.push({
-      label: `${formatShortDate(day)} · ${dayItems.length} ${dayItems.length === 1 ? 'item' : 'items'} · ${(
+      label: `${formatShortDate(day)} · ${uniqueItemCount} ${uniqueItemCount === 1 ? 'item' : 'items'} · ${(
         totalSeconds / 3600
       ).toFixed(1)}h`,
-      items: dayItems.map((item) => ({
+      items: dayEntries.map(({ item, entry }) => ({
         key: item.key,
         summary: item.summary,
         statusName: item.statusName,
         statusCategory: item.statusCategory,
         due: item.due,
-        hours: item.logsByDay[day].seconds / 3600,
-        comments: item.logsByDay[day].comments ?? [],
+        hours: entry.seconds / 3600,
+        comment: entry.comment,
       })),
     });
   }
@@ -522,6 +605,9 @@ disconnectBtn.addEventListener('click', async () => {
   state.statusOptions = [];
   state.selectedStatuses = new Set();
   state.statusFilterOpen = false;
+  state.issueTypeOptions = [];
+  state.selectedIssueTypes = new Set();
+  state.issueTypeFilterOpen = false;
   state.workItemQuery = '';
   workItemFilterInput.value = '';
   summaryBtn.disabled = true;

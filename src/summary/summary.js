@@ -28,10 +28,10 @@ function renderDay(day) {
     `;
     wrap.appendChild(row);
 
-    for (const comment of item.comments) {
+    if (item.comment) {
       const commentEl = document.createElement('div');
       commentEl.className = 'item-worklog-comment';
-      commentEl.textContent = comment;
+      commentEl.textContent = item.comment;
       wrap.appendChild(commentEl);
     }
   }

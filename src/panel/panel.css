@@ -68,6 +68,9 @@ body {
   color: var(--text);
 }
 .connect-disclosure { color: var(--text-subtle); font-size: 12px; }
+.connect-remember { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 4px; }
+.connect-remember input { display: inline; width: auto; margin: 0; }
+.connect-remember-hint { color: var(--text-subtle); font-size: 12px; margin: 0 0 10px; }
 .connect-form button[type='submit'] {
   padding: 6px 14px;
   border: none;

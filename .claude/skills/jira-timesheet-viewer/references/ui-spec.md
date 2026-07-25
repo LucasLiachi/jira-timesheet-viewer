@@ -106,14 +106,24 @@ The connection lives in `chrome.storage.session` (see `extension-arch.md` §5) �
 │  │ ••••••••••••••             │  │
 │  └────────────────────────────┘  │
 │  Kept in memory for this browser  │
-│  session — never written to disk.│
+│  session by default — never       │
+│  written to disk unless you check │
+│  the box below.                   │
+│  ☐ Stay connected on this device  │
+│  Encrypts the token with a key    │
+│  that only exists in this browser │
+│  profile — useless if copied      │
+│  elsewhere, and erased on         │
+│  Disconnect.                      │
 │  ┌────────────────────────────┐  │
 │  │          Connect           │  │
 │  └────────────────────────────┘  │
 └──────────────────────────────────┘
 ```
 
-Field labels and helper text: `Jira base URL` (placeholder `https://your-domain.atlassian.net`); `Email`; `API token` (password input, helper text `Create a token at id.atlassian.com under Security → API tokens.`); and, under the fields, the fixed disclosure line `Kept in memory for this browser session — never written to disk.` in `--text-subtle`. That line is not optional copy — it's the one place the user is told that this form's data lives in session memory, not on disk, and not forever.
+Field labels and helper text: `Jira base URL` (placeholder `https://your-domain.atlassian.net`); `Email`; `API token` (password input, helper text `Create a token at id.atlassian.com under Security → API tokens.`); and, under the fields, the fixed disclosure line `Kept in memory for this browser session by default — never written to disk unless you check the box below.` in `--text-subtle`. That line is not optional copy — it's the one place the user is told that this form's data lives in session memory, not on disk, unless they opt into the checkbox below it.
+
+Below that, a checkbox, **unchecked by default**: `Stay connected on this device`, with a helper line under it in `--text-subtle`: `Encrypts the token with a key that only exists in this browser profile — useless if copied elsewhere, and erased on Disconnect.` Checking it persists an encrypted copy of the token across browser restarts (see `extension-arch.md` §5a for the crypto — non-extractable WebCrypto key in IndexedDB, ciphertext in `chrome.storage.local`). This is opt-in, per connection, not a global setting — see the Non-negotiables changelog note (2026-07-24) in `SKILL.md`.
 
 The inputs carry `autocomplete="url"` / `"username"` / `"current-password"` — deliberate, not filler. They're the standard hint for the user's own password manager (browser-native or third-party) to recognize this as a login form; see README.md "Usando um gerenciador de senhas" for what that does and doesn't make possible (third-party managers can't autofill *into* this form — one extension can't reach into another's page — so the documented path there is copy-paste from a saved vault entry). Don't remove these attributes as "unused."
 
@@ -134,14 +144,15 @@ This tool searches assigned issues by date range and shows, per day in that rang
 │  Jira Timesheet Viewer     Lucas · Connected│
 ├────────────────────────────────────────────┤
 │              ‹   July 2026   ›              │
-│              Mo Tu We Th Fr Sa Su           │
-│                       1  2  3  4  5          │
-│               6  7  8  9 10 11 12          │
-│              13 14 15 16 17 18 19          │
-│              20 21▓22▓23▓24▓25▓26 27        │  ← 20–26 = picked range
-│              27 28 29 30 31                 │
+│              Su Mo Tu We Th Fr Sa           │
+│                        1  2  3  4          │
+│               5  6  7  8  9 10 11          │
+│              12 13 14 15 16 17 18          │
+│              19 20▓21▓22▓23▓24▓25▓          │  ← 20–26 = picked range
+│              26▓27 28 29 30 31              │
 │  [ Projects (2) ▾ ]                         │
 │  [ Status ▾ ]                               │
+│  [ Type ▾ ]                                 │
 │  [ Search by key or summary…        ]       │
 │  [   Open summary in new tab        ]       │
 ├────────────────────────────────────────────┤
@@ -151,8 +162,9 @@ This tool searches assigned issues by date range and shows, per day in that rang
 │    PROJ-1  Fix login redirect  In Progress  4.0h │
 │    PROJ-2  Sprint planning     Em análise   4.0h │
 │  Jul 15 · 3 items · 9.0h                    │
-│    PROJ-1  Fix login redirect  In Progress  4.0h │
+│    PROJ-1  Fix login redirect  In Progress  2.0h │
 │    PROJ-2  Sprint planning     Em análise   4.0h │
+│    PROJ-1  Fix login redirect  In Progress  1.0h │
 │    PROJ-3  Other thing         Em análise   1.0h │
 │  Jul 16 · No worklogs                       │
 │  ...                                        │
@@ -161,11 +173,13 @@ This tool searches assigned issues by date range and shows, per day in that rang
 └────────────────────────────────────────────┘
 ```
 
+Jul 15 above shows `PROJ-1` twice, split apart by `PROJ-2` — that's deliberate, not a rendering bug: rows are one worklog each, ordered by the worklog's own timestamp across every issue that day, not grouped by issue. If `PROJ-1` logged at 9am and 4pm with `PROJ-2` logging at 1pm in between, that's exactly the order shown.
+
 Click a start day, then an end day, on the calendar — that runs the search immediately. Clicking any day afterwards (inside or outside the picked range) starts a brand-new range rather than doing anything special with the existing one — the calendar itself has no per-day click behaviour; the day-by-day breakdown lives in the list, not in the calendar widget. This is implemented in `src/panel/calendar.js` (pure grid renderer) and `src/panel/panel.js` (state machine + list rendering) — read those before changing this interaction, not just this doc.
 
-The list has one group per day in the picked range, oldest first, each showing the issues with a worklog that day and hours logged *on that item, that day* — the same issue can appear under several days if it has worklogs on more than one. Days with nothing logged still render (`Jul 16 · No worklogs`) instead of disappearing — a missing day should be visible, not silently skipped. After all the days, one final group, `Not logged in this period ({n})`, lists every assigned issue with zero logged seconds across the whole range; its hours column shows `timetracking.originalEstimateSeconds` instead (there's nothing logged to show). Status names (`In Progress`, `Em análise` in the mockup above) come straight from Jira, in whatever language that instance uses — they are not strings this extension authors, so the "UI strings are English" rule doesn't apply to them.
+The list has one group per day in the picked range, oldest first, each showing **one row per worklog**, in the order it was logged (by the worklog's own timestamp, `started`) — not one row per issue. An issue with two worklogs on the same day gets two rows, and if another issue logged time in between those two timestamps, its row sits between them: the ordering crosses issues, it doesn't group by issue first. The same issue can also appear under several different days if it has worklogs on more than one. Days with nothing logged still render (`Jul 16 · No worklogs`) instead of disappearing — a missing day should be visible, not silently skipped. After all the days, one final group, `Not logged in this period ({n})`, lists every assigned issue with zero logged seconds across the whole range; its hours column shows `timetracking.originalEstimateSeconds` instead (there's nothing logged to show). Status names (`In Progress`, `Em análise` in the mockup above) come straight from Jira, in whatever language that instance uses — they are not strings this extension authors, so the "UI strings are English" rule doesn't apply to them.
 
-If the worklog for an item on a given day has a description, it appears on a second line below that row, in `--text-subtle`, italic, truncated with ellipsis (full text in `title` on hover). If there's more than one worklog for that item on that day with different descriptions, each gets its own line — they are not merged into one, same principle as the parked accordion design in §5. Rows in the `Not logged in this period` group never have a description line (no worklog, nothing to show).
+If a worklog has a description, it appears on a second line below its row, in `--text-subtle`, italic, truncated with ellipsis (full text in `title` on hover). Since each row is already exactly one worklog, there's at most one description line per row — no merging, no loop; the previous design bundled every comment for an issue-day under one row, which is what made cross-issue chronological ordering (this section, above) impossible in the first place. Rows in the `Not logged in this period` group never have a description line (no worklog, nothing to show).
 
 #### Project filter (below the calendar, above Status)
 
@@ -177,13 +191,17 @@ While `GET_PROJECTS` is in flight, the button ignores further clicks (its own an
 
 Same button+popover pattern, labelled `Status`. Unlike the project filter, this is a **client-side sub-filter** over whatever `SEARCH` already returned — changing it never triggers a new network request. Its option list is rebuilt from the distinct `statusName` values in the current result set every time a new search comes back, and resets to "every status checked" each time — it does not remember a previous search's narrowing. Unchecking every status shows `Select at least one status to show items.` instead of an empty list, for the same reason as the project filter: distinguishing "nothing matches" from "you excluded everything."
 
-#### Work item filter (last, below Status)
+#### Type filter (below Status, above the work item filter)
 
-A plain text input, not a checkbox popover — issues aren't a small enumerable set the way statuses or projects are. Placeholder `Search by key or summary…`, `aria-label="Search work items"`. Client-side only, same as the status filter: on every keystroke it further narrows `visibleItems` to those whose `key` or `summary` includes the query (case-insensitive substring match), applied after the status filter. Empty query means no narrowing. There's no dedicated "no matches" message — same as the status filter, a query that matches nothing just renders every day as `No worklogs` and an empty `Not logged in this period (0)` group, rather than a distinct empty state.
+Same button+popover pattern, labelled `Type`. A client-side sub-filter over `issueType` (Jira's issue type name — `Task`, `Bug`, `Story`, etc.), exactly the same behaviour as the Status filter: option list rebuilt from the distinct `issueType` values in the current result set every time a new search comes back, resets to "every type checked" each time, and unchecking every type shows `Select at least one item type to show items.` instead of an empty list.
+
+#### Work item filter (last, below Type)
+
+A plain text input, not a checkbox popover — issues aren't a small enumerable set the way statuses or projects are. Placeholder `Search by key or summary…`, `aria-label="Search work items"`. Client-side only, same as the status and type filters: on every keystroke it further narrows `visibleItems` to those whose `key` or `summary` includes the query (case-insensitive substring match), applied after status and type. Empty query means no narrowing. There's no dedicated "no matches" message — same as the other client-side filters, a query that matches nothing just renders every day as `No worklogs` and an empty `Not logged in this period (0)` group, rather than a distinct empty state.
 
 ### 3b. Shared component: the multi-select filter popover
 
-The Projects and Status filters are the same `src/panel/multi-select.js` — a pure render function (same division of labour as `calendar.js`: it draws, `panel.js` owns all the state) for a button that toggles a small checklist below it. The work item filter is a plain text input, not this component — there's nothing to enumerate:
+The Projects, Status and Type filters are the same `src/panel/multi-select.js` — a pure render function (same division of labour as `calendar.js`: it draws, `panel.js` owns all the state) for a button that toggles a small checklist below it. The work item filter is a plain text input, not this component — there's nothing to enumerate:
 
 ```
 ┌────────────────────┐
@@ -230,7 +248,7 @@ Reuses the day-grouping layout from §3a (`item-group-header`, `item-row`, `stat
 - **No empty days, no "Not logged in this period."** This is a record of work actually done, not the panel's gap-finder — a day with nothing logged, or an issue with nothing logged, simply isn't in the report at all.
 - **Not clickable.** Rows don't open Jira — this page is for reading, copying or printing, not for navigating onward.
 
-The header line under the title only lists filters that are actually narrowing something (`Projects: …` only if fewer than all projects are checked, `Status: …` likewise, `Search: "…"` only if the work item box isn't empty) — if none of the three are narrowed, that line is blank rather than reading "Projects: all of them."
+The header line under the title only lists filters that are actually narrowing something (`Projects: …` only if fewer than all projects are checked, `Status: …` and `Type: …` likewise, `Search: "…"` only if the work item box isn't empty) — if none of the four are narrowed, that line is blank rather than reading "Projects: all of them."
 
 Data moves from `panel.js` to the summary page through `chrome.storage.session` under the key `summaryPayload` — a one-shot handoff, not a persistent session like the connection (see `extension-arch.md` §5). `summary.js` reads it once on load and immediately clears the key, so opening the summary URL again later without going through the button shows `No summary data found.` instead of a stale report.
 
