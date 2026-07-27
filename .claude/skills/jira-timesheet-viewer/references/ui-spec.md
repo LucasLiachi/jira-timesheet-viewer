@@ -46,13 +46,13 @@ Follows the Atlassian palette closely enough to feel native next to Jira, withou
 }
 ```
 
-Status chips map from `statusCategory.key`, never from the status name:
+Status labels map from `statusCategory.key`, never from the status name. They render as plain colour-coded text (bold, no pill background) — an earlier version used a padded, rounded chip (background + border-radius), but at the size it renders in the day-grouped list it read as hard to read rather than as a helpful badge, so it was dropped in favour of colour alone:
 
-| Category key | Background | Label colour |
-|---|---|---|
-| `new` | `--bg-subtle` | `--text-subtle` |
-| `indeterminate` | `#deebff` | `--accent` |
-| `done` | `#e3fcef` | `#006644` |
+| Category key | Text colour |
+|---|---|
+| `new` | `--text-subtle` |
+| `indeterminate` | `--accent` |
+| `done` | `#006644` |
 
 ---
 
@@ -155,31 +155,50 @@ This tool searches assigned issues by date range and shows, per day in that rang
 │  [ Type ▾ ]                                 │
 │  [ Search by key or summary…        ]       │
 │  [   Open summary in new tab        ]       │
+│  Jul 20 – Jul 26, 2026    Total logged: 17.0h│
 ├────────────────────────────────────────────┤
 │  Grouped by day logged. Click an issue to   │
 │  open it in Jira.                           │
 │  Jul 14 · 2 items · 8.0h                    │
-│    PROJ-1  Fix login redirect  In Progress  4.0h │
-│    PROJ-2  Sprint planning     Em análise   4.0h │
+│    PROJ-1  Fix login redirect · Jul 22  09:00 │
+│    In Progress                           4.0h │
+│    PROJ-2  Sprint planning              13:00 │
+│    Em análise  Sprint planning notes     4.0h │
 │  Jul 15 · 3 items · 9.0h                    │
-│    PROJ-1  Fix login redirect  In Progress  2.0h │
-│    PROJ-2  Sprint planning     Em análise   4.0h │
-│    PROJ-1  Fix login redirect  In Progress  1.0h │
-│    PROJ-3  Other thing         Em análise   1.0h │
+│    PROJ-1  Fix login redirect · Jul 22  08:30 │
+│    In Progress                           2.0h │
+│    PROJ-2  Sprint planning              11:00 │
+│    Em análise                            4.0h │
+│    PROJ-1  Fix login redirect · Jul 22  16:00 │
+│    In Progress  Patched and deployed     1.0h │
+│    PROJ-3  Other thing                  17:30 │
+│    Em análise                            1.0h │
 │  Jul 16 · No worklogs                       │
 │  ...                                        │
 │  Not logged in this period (3)              │
-│    PROJ-9  Something else      To Do    —   │
+│    PROJ-9  Something else                  − │
+│    To Do                                      │
 └────────────────────────────────────────────┘
 ```
 
 Jul 15 above shows `PROJ-1` twice, split apart by `PROJ-2` — that's deliberate, not a rendering bug: rows are one worklog each, ordered by the worklog's own timestamp across every issue that day, not grouped by issue. If `PROJ-1` logged at 9am and 4pm with `PROJ-2` logging at 1pm in between, that's exactly the order shown.
 
+Beside the date range text, once a search has actually rendered, a `Total logged: {X.X}h` line sums every visible worklog's seconds across the *whole* picked range (all days combined, not just one) — same `(seconds / 3600).toFixed(1)` math as each day header's total, just not scoped to a single day. It's blank before a range is picked, while a search is loading, and whenever a filter has blocked the list entirely (see §8 "Empty" states) — anywhere `list-status` shows a blocking message instead of the day groups, this line is empty too, not stale from a previous search.
+
 Click a start day, then an end day, on the calendar — that runs the search immediately. Clicking any day afterwards (inside or outside the picked range) starts a brand-new range rather than doing anything special with the existing one — the calendar itself has no per-day click behaviour; the day-by-day breakdown lives in the list, not in the calendar widget. This is implemented in `src/panel/calendar.js` (pure grid renderer) and `src/panel/panel.js` (state machine + list rendering) — read those before changing this interaction, not just this doc.
 
 The list has one group per day in the picked range, oldest first, each showing **one row per worklog**, in the order it was logged (by the worklog's own timestamp, `started`) — not one row per issue. An issue with two worklogs on the same day gets two rows, and if another issue logged time in between those two timestamps, its row sits between them: the ordering crosses issues, it doesn't group by issue first. The same issue can also appear under several different days if it has worklogs on more than one. Days with nothing logged still render (`Jul 16 · No worklogs`) instead of disappearing — a missing day should be visible, not silently skipped. After all the days, one final group, `Not logged in this period ({n})`, lists every assigned issue with zero logged seconds across the whole range; its hours column shows `timetracking.originalEstimateSeconds` instead (there's nothing logged to show). Status names (`In Progress`, `Em análise` in the mockup above) come straight from Jira, in whatever language that instance uses — they are not strings this extension authors, so the "UI strings are English" rule doesn't apply to them.
 
-If a worklog has a description, it appears on a second line below its row, in `--text-subtle`, italic, truncated with ellipsis (full text in `title` on hover). Since each row is already exactly one worklog, there's at most one description line per row — no merging, no loop; the previous design bundled every comment for an issue-day under one row, which is what made cross-issue chronological ordering (this section, above) impossible in the first place. Rows in the `Not logged in this period` group never have a description line (no worklog, nothing to show).
+Each row is an explicit **two-row, three-column grid** (`display: grid` with named columns `64px 1fr auto` and two rows — see `panel.css`'s `.item-row`), not a stack of independently-flowing lines:
+
+| | Column 1 | Column 2 | Column 3 |
+|---|---|---|---|
+| **Row 1** | issue key | summary, then due date beside it if there is one (`.item-title-cell`) | worklog start time |
+| **Row 2** | status label | worklog description (if any) | logged hours |
+
+Row 1 is uniformly bold and one font size — key, summary, due date and start time all carry `font-weight: 600` and inherit the row's base size rather than each shrinking on its own; it's meant to read as a single header line, not as a mix of emphasis levels. The due date sits inside the title cell, not its own column — `Fix login redirect · Jul 22` — so a long summary truncates with an ellipsis (full text in `title` on hover) while the due date next to it never gets clipped; overdue styling (`--danger` text, `aria-label="Overdue"`) applies to just that date fragment, and the whole row still gets the `--danger` left border. When an issue has no due date, that element is left out entirely rather than showing `—` — right at the column 2/column 3 boundary, an empty-value dash there read as clutter, not a useful signal (see §7 "Empty values"). The start time (`HH:MM`, 24h, in the connected account's time zone; `formatTime()` in `dates.js`) sits directly above the logged hours value, right-aligned — both are column 3, one per row.
+
+The status label (row 2, column 1) sits directly under the key, and the description (row 2, column 2, `--text-subtle`, italic, ellipsis-truncated, full text in `title`) sits directly under the summary — each cell is placed explicitly by CSS class (`grid-column`/`grid-row`), not by DOM order, so the two conditional cells (start time, description) can be left out of the markup entirely without shifting anything else on the grid. It's plain colour-coded text per §1's table (bold, no background) — a padded, rounded chip was tried first and turned out hard to read at this size, so the pill was dropped in favour of colour alone. The status label has no empty state and always renders; the description is the only cell that's actually optional. Since each row is already exactly one worklog, there's at most one status label and one description per row — no merging, no loop; the previous design bundled every comment for an issue-day under one row, which is what made cross-issue chronological ordering (this section, above) impossible in the first place. Rows in the `Not logged in this period` group have no start time (there's no worklog to time) and no description — just the status label alone in row 2, column 1 — and the hours cell shows `timetracking.originalEstimateSeconds` instead.
 
 #### Project filter (below the calendar, above Status)
 
@@ -233,17 +252,21 @@ If the panel is opened without an active connection (nothing in `chrome.storage.
 │  Projects: PROJ1, PROJ2 · Status: In Progress     │
 ├──────────────────────────────────────────────────┤
 │  JUL 14 · 2 ITEMS · 8.0H                          │
-│    PROJ-1  Fix login redirect  In Progress  4.0h  │
-│      Investigated the redirect loop               │
-│    PROJ-2  Sprint planning     Em análise   4.0h  │
+│    PROJ-1  Fix login redirect · Jul 22     09:00  │
+│    In Progress  Investigated the redirect  4.0h   │
+│    PROJ-2  Sprint planning                 13:00  │
+│    Em análise                              4.0h   │
 │  JUL 15 · 3 ITEMS · 9.0H                          │
-│    PROJ-1  Fix login redirect  In Progress  4.0h  │
-│    PROJ-2  Sprint planning     Em análise   4.0h  │
-│    PROJ-3  Other thing         Em análise   1.0h  │
+│    PROJ-1  Fix login redirect · Jul 22     08:30  │
+│    In Progress                             4.0h   │
+│    PROJ-2  Sprint planning                 11:00  │
+│    Em análise                              4.0h   │
+│    PROJ-3  Other thing                     17:30  │
+│    Em análise                              1.0h   │
 └──────────────────────────────────────────────────┘
 ```
 
-Reuses the day-grouping layout from §3a (`item-group-header`, `item-row`, `status-chip`, `item-worklog-comment` classes) but as its own page with its own stylesheet (`src/summary/summary.css`), same convention as every other surface owning its own CSS — it doesn't link `panel.css`. Two deliberate differences from the live list:
+Reuses the day-grouping layout from §3a (`item-group-header`, `item-row`, `item-key`, `item-title-cell`, `item-summary`, `item-due`, `item-time`, `status-chip`, `item-worklog-comment`, `item-hours-value` classes) but as its own page with its own stylesheet (`src/summary/summary.css`), same convention as every other surface owning its own CSS — it doesn't link `panel.css`. Same two-row, three-column grid as §3a (see the table there) — the payload carries each worklog's `started` timestamp and the connected account's `timeZone` alongside the fields it already sent, so `summary.js` can format the time itself rather than the panel pre-formatting a string. Two deliberate differences from the live list:
 
 - **No empty days, no "Not logged in this period."** This is a record of work actually done, not the panel's gap-finder — a day with nothing logged, or an issue with nothing logged, simply isn't in the report at all.
 - **Not clickable.** Rows don't open Jira — this page is for reading, copying or printing, not for navigating onward.
@@ -356,9 +379,11 @@ A small status line at the top of the page reads `Connected as {displayName}` or
 
 **Dates in tables** — `MMM D` (`Jul 22`) when inside the current year, `MMM D, YYYY` otherwise.
 
-**Empty values** — em dash `—`, in `--text-subtle`. Never blank, never `null`, never `N/A`.
+**Time of day** — `HH:MM`, 24h, no seconds (`09:00`, `16:00`), in the connected account's time zone. `formatTime()` in `dates.js`. Only shown for an actual worklog's `started` timestamp, stacked above its hours value — never shown for the `Not logged in this period` group, since there's no worklog to time there.
 
-**Totals** — per-day totals are shipped (each day header in §3a sums that day's `logsByDay[day].seconds` across items, formats once at the end — never sum pre-rounded hours). A grand total across the whole picked range is *not* shown anywhere (no footer) — not implemented, not asked for yet.
+**Empty values** — em dash `—`, in `--text-subtle`. Never blank, never `null`, never `N/A`. One deliberate exception: a missing due date inside the title cell (§3a) renders as nothing at all, not `—` — sitting right at the boundary between the title/description column and the time/hours column, a dash there read as visual clutter rather than a useful placeholder, so the element is simply left out of that row instead. The hours and status cells keep the dash/never-blank rule as-is.
+
+**Totals** — per-day totals are shipped (each day header in §3a sums that day's `logsByDay[day].seconds` across items, formats once at the end — never sum pre-rounded hours). A grand total across the whole picked range is also shipped: `Total logged: {X.X}h`, beside the date range text in §3a, same `(seconds / 3600).toFixed(1)` math applied to the sum across every day rather than one. It's a panel-only line — the summary page (§3c) has no equivalent footer.
 
 **CSV export** *(parked with §5 — not implemented)*: UTF-8 with BOM, headers `Date,Issue Key,Summary,Hours,Description`, every field quoted, internal quotes escaped by doubling.
 

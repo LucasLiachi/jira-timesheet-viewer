@@ -210,6 +210,15 @@ main#app { padding: 14px; }
 
 .hint { color: var(--text-subtle); font-size: 12px; }
 
+.range-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+}
+.range-summary #period-total { font-weight: 600; white-space: nowrap; }
+
 .list-section { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
 
 .item-group-header {
@@ -224,28 +233,71 @@ main#app { padding: 14px; }
   margin-top: 10px;
 }
 
+/* Two rows, three columns per worklog:
+     row 1: key       | title + due date   | start time
+     row 2: status    | worklog description| logged hours
+   Each cell is placed explicitly (grid-column/grid-row below) rather than
+   relying on source order, so the two optional cells (due date text inside
+   the title cell, and the description) can be omitted without throwing the
+   rest of the grid out of place. */
 .item-row {
   display: grid;
-  grid-template-columns: 64px 1fr auto auto auto;
-  gap: 8px;
-  align-items: center;
+  grid-template-columns: 64px 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: baseline;
   padding: 6px 4px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
 }
 .item-row:hover { background: var(--bg-subtle); }
 .item-row.is-overdue { border-left: 3px solid var(--danger); }
-.item-key { color: var(--accent); font-weight: 600; }
+
+/* Row 1 (key, title+due, start time) is uniformly bold and the same size —
+   it reads as one header line, so nothing in it should stand out by weight
+   or size alone. */
+.item-key { grid-column: 1; grid-row: 1; color: var(--accent); font-weight: 600; }
+
+.item-title-cell {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 600;
+}
 .item-summary {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.item-due { flex-shrink: 0; color: var(--text-subtle); }
 .item-due.is-overdue-text { color: var(--danger); }
-.item-hours { color: var(--text-subtle); text-align: right; }
+
+.item-time { grid-column: 3; grid-row: 1; justify-self: end; color: var(--text-subtle); font-weight: 600; }
+
+/* Plain colour-coded text, not a pill — the background + border-radius
+   badge was hard to read at this size. */
+.status-chip {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: start;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-chip.new { color: var(--text-subtle); }
+.status-chip.indeterminate { color: var(--accent); }
+.status-chip.done { color: #006644; }
 
 .item-worklog-comment {
-  grid-column: 2 / -1;
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
   color: var(--text-subtle);
   font-size: 12px;
   font-style: italic;
@@ -254,14 +306,6 @@ main#app { padding: 14px; }
   white-space: nowrap;
 }
 
-.status-chip {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  white-space: nowrap;
-}
-.status-chip.new { background: var(--bg-subtle); color: var(--text-subtle); }
-.status-chip.indeterminate { background: #deebff; color: var(--accent); }
-.status-chip.done { background: #e3fcef; color: #006644; }
+.item-hours-value { grid-column: 3; grid-row: 2; justify-self: end; color: var(--text-subtle); }
 
 .empty-state { padding: 24px 4px; color: var(--text-subtle); text-align: center; }

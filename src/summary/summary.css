@@ -51,35 +51,68 @@ header { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bo
   margin-top: 20px;
 }
 
+/* Two rows, three columns per worklog:
+     row 1: key       | title + due date   | start time
+     row 2: status    | worklog description| logged hours
+   Same shape as the live panel (see panel.css) — each cell placed
+   explicitly so the two optional ones (due date, description) can be
+   omitted without shifting the rest of the grid. */
 .item-row {
   display: grid;
-  grid-template-columns: 90px 1fr auto auto auto;
-  gap: 10px;
-  align-items: center;
+  grid-template-columns: 90px 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 4px;
+  align-items: baseline;
   padding: 8px 6px;
   border-bottom: 1px solid var(--border);
 }
-.item-key { color: var(--accent); font-weight: 600; }
-.item-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.item-due { color: var(--text-subtle); }
-.item-hours { color: var(--text-subtle); text-align: right; }
+
+/* Row 1 (key, title+due, start time) is uniformly bold and the same size —
+   it reads as one header line, so nothing in it should stand out by weight
+   or size alone. */
+.item-key { grid-column: 1; grid-row: 1; color: var(--accent); font-weight: 600; }
+
+.item-title-cell {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 600;
+}
+.item-summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-due { flex-shrink: 0; color: var(--text-subtle); }
+
+.item-time { grid-column: 3; grid-row: 1; justify-self: end; color: var(--text-subtle); font-weight: 600; }
+
+/* Plain colour-coded text, not a pill — the background + border-radius
+   badge was hard to read at this size. */
+.status-chip {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: start;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-chip.new { color: var(--text-subtle); }
+.status-chip.indeterminate { color: var(--accent); }
+.status-chip.done { color: #006644; }
 
 .item-worklog-comment {
-  grid-column: 2 / -1;
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
   color: var(--text-subtle);
   font-size: 13px;
   font-style: italic;
-  padding: 0 6px 6px;
-}
-
-.status-chip {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.status-chip.new { background: var(--bg-subtle); color: var(--text-subtle); }
-.status-chip.indeterminate { background: #deebff; color: var(--accent); }
-.status-chip.done { background: #e3fcef; color: #006644; }
+
+.item-hours-value { grid-column: 3; grid-row: 2; justify-self: end; color: var(--text-subtle); }
 
 .empty-state { padding: 32px 4px; color: var(--text-subtle); }

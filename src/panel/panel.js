@@ -1,6 +1,6 @@
 import { request } from '../lib/messaging.js';
 import { mountConnectForm } from '../lib/connect-form.js';
-import { todayISO, formatShortDate, enumerateDates } from '../lib/dates.js';
+import { todayISO, formatShortDate, formatTime, enumerateDates } from '../lib/dates.js';
 import { renderMonth, monthLabel } from './calendar.js';
 import { renderMultiSelect } from './multi-select.js';
 
@@ -17,6 +17,7 @@ const issueTypeFilterEl = $('issue-type-filter');
 const workItemFilterInput = $('work-item-filter');
 const summaryBtn = $('open-summary');
 const rangeHint = $('range-hint');
+const periodTotalEl = $('period-total');
 const listStatus = $('list-status');
 const listEl = $('list');
 
@@ -379,10 +380,12 @@ function renderList() {
   if (!state.range) {
     listStatus.textContent = 'Pick a start and end date on the calendar to search.';
     rangeHint.textContent = '';
+    periodTotalEl.textContent = '';
     return;
   }
 
   rangeHint.textContent = `${formatShortDate(state.range.from)} – ${formatShortDate(state.range.to)}`;
+  periodTotalEl.textContent = '';
 
   if (state.loading) {
     listStatus.textContent = 'Loading…';
@@ -420,10 +423,12 @@ function renderList() {
   // interleaves with worklogs on other issues instead of staying block by
   // block. Days with nothing logged still render — a missing day should be
   // visible, not silently skipped.
+  let periodTotalSeconds = 0;
   for (const day of enumerateDates(state.range.from, state.range.to)) {
     const dayEntries = collectDayEntries(visibleItems, day);
     const uniqueItemCount = new Set(dayEntries.map(({ item }) => item.key)).size;
     const dayTotalSeconds = dayEntries.reduce((sum, { entry }) => sum + entry.seconds, 0);
+    periodTotalSeconds += dayTotalSeconds;
 
     const title =
       dayEntries.length > 0
@@ -434,6 +439,7 @@ function renderList() {
 
     listEl.appendChild(renderGroup(title, dayEntries));
   }
+  periodTotalEl.textContent = `Total logged: ${(periodTotalSeconds / 3600).toFixed(1)}h`;
 
   // Everything assigned to you in this period with zero logged time across
   // the whole range, regardless of which day(s) it's due — the "what still
@@ -482,42 +488,75 @@ function renderGroup(title, dayEntries) {
   return wrap;
 }
 
+// Two rows, three columns: [key | title+due | start time] over
+// [status | worklog description | logged hours]. See panel.css for how the
+// six cells are placed on the grid. Built with createElement/textContent
+// rather than innerHTML so summary/comment text — free-form Jira content —
+// never has to be manually escaped, including inside the `title` tooltip
+// attribute, where a naive string-escaping helper (escaping for element text,
+// not for attribute context) would still let a stray `"` break out.
 function renderWorklogRow(item, entry, today) {
   const seconds = entry?.seconds ?? 0;
   const comment = entry?.comment ?? '';
+  const started = entry?.started;
+  const overdue = item.due && item.due < today && item.statusCategory !== 'done';
 
   const row = document.createElement('div');
-  const overdue = item.due && item.due < today && item.statusCategory !== 'done';
   row.className = `item-row${overdue ? ' is-overdue' : ''}`;
   row.title = 'Open in Jira';
-  row.innerHTML = `
-    <span class="item-key">${item.key}</span>
-    <span class="item-summary" title="${escapeHtml(item.summary)}">${escapeHtml(item.summary)}</span>
-    <span class="status-chip ${item.statusCategory}">${escapeHtml(item.statusName)}</span>
-    <span class="item-due${overdue ? ' is-overdue-text' : ''}"${overdue ? ' aria-label="Overdue"' : ''}>${
-      item.due ? formatShortDate(item.due) : '—'
-    }</span>
-    <span class="item-hours">${seconds ? (seconds / 3600).toFixed(1) + 'h' : '—'}</span>
-  `;
+
+  const key = document.createElement('span');
+  key.className = 'item-key';
+  key.textContent = item.key;
+
+  const titleCell = document.createElement('span');
+  titleCell.className = 'item-title-cell';
+  const summaryEl = document.createElement('span');
+  summaryEl.className = 'item-summary';
+  summaryEl.textContent = item.summary;
+  summaryEl.title = item.summary;
+  titleCell.appendChild(summaryEl);
+  if (item.due) {
+    const dueEl = document.createElement('span');
+    dueEl.className = `item-due${overdue ? ' is-overdue-text' : ''}`;
+    if (overdue) dueEl.setAttribute('aria-label', 'Overdue');
+    dueEl.textContent = formatShortDate(item.due);
+    titleCell.appendChild(dueEl);
+  }
+
+  const statusEl = document.createElement('span');
+  statusEl.className = `status-chip ${item.statusCategory}`;
+  statusEl.textContent = item.statusName;
+
+  const hoursEl = document.createElement('span');
+  hoursEl.className = 'item-hours-value';
+  hoursEl.textContent = seconds ? (seconds / 3600).toFixed(1) + 'h' : '—';
+
+  row.append(key, titleCell);
+
+  if (started) {
+    const timeEl = document.createElement('span');
+    timeEl.className = 'item-time';
+    timeEl.textContent = formatTime(started, state.timeZone);
+    row.appendChild(timeEl);
+  }
+
+  row.appendChild(statusEl);
 
   if (comment) {
-    const commentEl = document.createElement('div');
+    const commentEl = document.createElement('span');
     commentEl.className = 'item-worklog-comment';
     commentEl.textContent = comment;
     commentEl.title = comment;
     row.appendChild(commentEl);
   }
 
+  row.appendChild(hoursEl);
+
   row.addEventListener('click', () => {
     if (state.baseUrl) openIssue(`${state.baseUrl}/browse/${item.key}`);
   });
   return row;
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
 }
 
 // Only describes filters that actually narrow something — "everything
@@ -567,6 +606,7 @@ function buildDaySummaries() {
         due: item.due,
         hours: entry.seconds / 3600,
         comment: entry.comment,
+        started: entry.started,
       })),
     });
   }
@@ -628,6 +668,7 @@ summaryBtn.addEventListener('click', async () => {
   const payload = {
     rangeLabel: `${formatShortDate(state.range.from)} – ${formatShortDate(state.range.to)}`,
     filters: buildFilterSummary(),
+    timeZone: state.timeZone,
     days: buildDaySummaries(),
   };
   await chrome.storage.session.set({ summaryPayload: payload });

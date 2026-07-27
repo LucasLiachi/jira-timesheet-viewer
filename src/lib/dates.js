@@ -54,6 +54,16 @@ export function formatShortDate(dateISO, { referenceYear = new Date().getFullYea
   return y === referenceYear ? `${month} ${d}` : `${month} ${d}, ${y}`;
 }
 
+/** epoch ms → 'HH:MM' (24h) as that instant reads on a wall clock in `timeZone`. */
+export function formatTime(epochMs, timeZone) {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(epochMs));
+}
+
 function tzOffsetMs(epochMs, timeZone) {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat('en-US', {

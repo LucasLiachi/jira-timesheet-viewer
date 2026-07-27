@@ -1,14 +1,67 @@
-import { formatShortDate } from '../lib/dates.js';
+import { formatShortDate, formatTime } from '../lib/dates.js';
 
 const $ = (id) => document.getElementById(id);
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
+// Same two-rows/three-columns layout as the live panel (see panel.css /
+// panel.js's renderWorklogRow): [key | title+due | start time] over
+// [status | worklog description | logged hours]. Built with
+// createElement/textContent, not innerHTML, so summary/comment text — free
+// -form Jira content — never needs manual escaping, including inside the
+// `title` tooltip attribute.
+function renderWorklogRow(item, timeZone) {
+  const row = document.createElement('div');
+  row.className = 'item-row';
+
+  const key = document.createElement('span');
+  key.className = 'item-key';
+  key.textContent = item.key;
+
+  const titleCell = document.createElement('span');
+  titleCell.className = 'item-title-cell';
+  const summaryEl = document.createElement('span');
+  summaryEl.className = 'item-summary';
+  summaryEl.textContent = item.summary;
+  summaryEl.title = item.summary;
+  titleCell.appendChild(summaryEl);
+  if (item.due) {
+    const dueEl = document.createElement('span');
+    dueEl.className = 'item-due';
+    dueEl.textContent = formatShortDate(item.due);
+    titleCell.appendChild(dueEl);
+  }
+
+  const statusEl = document.createElement('span');
+  statusEl.className = `status-chip ${item.statusCategory}`;
+  statusEl.textContent = item.statusName;
+
+  const hoursEl = document.createElement('span');
+  hoursEl.className = 'item-hours-value';
+  hoursEl.textContent = `${item.hours.toFixed(1)}h`;
+
+  row.append(key, titleCell);
+
+  if (item.started) {
+    const timeEl = document.createElement('span');
+    timeEl.className = 'item-time';
+    timeEl.textContent = formatTime(item.started, timeZone);
+    row.appendChild(timeEl);
+  }
+
+  row.appendChild(statusEl);
+
+  if (item.comment) {
+    const commentEl = document.createElement('span');
+    commentEl.className = 'item-worklog-comment';
+    commentEl.textContent = item.comment;
+    commentEl.title = item.comment;
+    row.appendChild(commentEl);
+  }
+
+  row.appendChild(hoursEl);
+  return row;
 }
 
-function renderDay(day) {
+function renderDay(day, timeZone) {
   const wrap = document.createElement('div');
 
   const header = document.createElement('div');
@@ -17,23 +70,7 @@ function renderDay(day) {
   wrap.appendChild(header);
 
   for (const item of day.items) {
-    const row = document.createElement('div');
-    row.className = 'item-row';
-    row.innerHTML = `
-      <span class="item-key">${escapeHtml(item.key)}</span>
-      <span class="item-summary" title="${escapeHtml(item.summary)}">${escapeHtml(item.summary)}</span>
-      <span class="status-chip ${item.statusCategory}">${escapeHtml(item.statusName)}</span>
-      <span class="item-due">${item.due ? formatShortDate(item.due) : '—'}</span>
-      <span class="item-hours">${item.hours.toFixed(1)}h</span>
-    `;
-    wrap.appendChild(row);
-
-    if (item.comment) {
-      const commentEl = document.createElement('div');
-      commentEl.className = 'item-worklog-comment';
-      commentEl.textContent = item.comment;
-      wrap.appendChild(commentEl);
-    }
+    wrap.appendChild(renderWorklogRow(item, timeZone));
   }
 
   return wrap;
@@ -60,8 +97,9 @@ async function render() {
     return;
   }
 
+  const timeZone = summaryPayload.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
   for (const day of summaryPayload.days) {
-    daysEl.appendChild(renderDay(day));
+    daysEl.appendChild(renderDay(day, timeZone));
   }
 }
 
