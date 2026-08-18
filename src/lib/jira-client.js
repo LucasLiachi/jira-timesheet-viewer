@@ -112,11 +112,13 @@ export async function fetchAllProjects(client) {
 }
 
 /**
- * Worklogs for one issue inside [fromMs, toMs), filtered server-side.
+ * Worklogs for one issue. We fetch all worklogs and filter them client-side,
+ * because Jira's /rest/api/2/issue/{issueId}/worklog endpoint has a history
+ * of ignoring or breaking when passed startedAfter/startedBefore.
  * Deliberately v2, not v3: v3 returns `comment` as an ADF tree, v2 as a plain
  * string — do not "upgrade" this without adding an ADF flattener first.
  */
-export async function fetchIssueWorklogs(client, issueId, fromMs, toMs) {
+export async function fetchIssueWorklogs(client, issueId) {
   const out = [];
   let startAt = 0;
 
@@ -124,8 +126,6 @@ export async function fetchIssueWorklogs(client, issueId, fromMs, toMs) {
     const params = new URLSearchParams({
       startAt: String(startAt),
       maxResults: '100',
-      startedAfter: String(fromMs),
-      startedBefore: String(toMs),
     });
 
     const data = await client.get(`/rest/api/2/issue/${issueId}/worklog?${params}`);

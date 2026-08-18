@@ -18,31 +18,54 @@
     <div id="connect-container"></div>
 
     <main id="app" hidden>
-      <section class="calendar-section">
+      <!-- CONTEXT 1 — TIMESHEET (worklogs in the period) -->
+      <section class="context-section" id="timesheet-context">
+        <h2 class="context-heading">Timesheet</h2>
         <div class="calendar-toolbar">
           <button id="prev-month" type="button" aria-label="Previous month">&lsaquo;</button>
           <span id="month-label"></span>
           <button id="next-month" type="button" aria-label="Next month">&rsaquo;</button>
         </div>
         <div id="calendar"></div>
+        <p class="range-summary">
+          <span id="range-hint" class="hint"></span>
+          <span id="period-total" class="hint"></span>
+        </p>
+        <button id="search-btn" type="button" class="search-button" disabled title="Search worklogs for the selected period">
+          Search Timesheet
+        </button>
+        <p id="timesheet-status" class="hint"></p>
+        <div id="timesheet-list"></div>
+        <button id="open-summary" type="button" class="summary-button" disabled title="Open a summary of logged worklogs in a new tab">
+          Open summary in new tab
+        </button>
+      </section>
+
+      <hr class="context-divider" />
+
+      <!-- CONTEXT 2 — MY ITEMS (assigned issues, ownership view) -->
+      <section class="context-section" id="my-items-context">
+        <h2 class="context-heading">My Items</h2>
         <div id="project-filter"></div>
         <div id="status-filter"></div>
         <div id="issue-type-filter"></div>
         <div class="text-filter">
           <input id="work-item-filter" type="text" placeholder="Search by key or summary…" aria-label="Search work items" />
         </div>
-        <button id="open-summary" type="button" class="summary-button" disabled title="Open a summary of logged worklogs in a new tab">
-          Open summary in new tab
-        </button>
+        <div class="unlogged-toggle-wrapper">
+          <label class="unlogged-toggle-label">
+            <input id="unlogged-only-filter" type="checkbox" />
+            <span class="unlogged-toggle-text">⚠️ Unlogged only</span>
+          </label>
+        </div>
         <p class="range-summary">
-          <span id="range-hint" class="hint"></span>
-          <span id="period-total" class="hint"></span>
+          <span id="unlogged-count-badge" class="unlogged-badge" hidden></span>
         </p>
-      </section>
-
-      <section class="list-section">
-        <p id="list-status" class="hint"></p>
-        <div id="list"></div>
+        <button id="search-my-items-btn" type="button" class="search-button" disabled title="Search assigned items for the selected period">
+          Search My Items
+        </button>
+        <p id="my-items-status" class="hint"></p>
+        <div id="my-items-list"></div>
       </section>
     </main>
 

@@ -7,13 +7,13 @@ Nada aqui cria, edita ou apaga issues ou worklogs no Jira. Detalhes de arquitetu
 ## O que ela faz
 
 1. Você escolhe um período num pequeno calendário (clique no dia inicial, depois no dia final). A busca sempre traz tudo que é seu no período, com ou sem due date.
-2. (Opcional) Abaixo do calendário, clique em **Projects** para restringir a busca a um ou mais projetos — por padrão, busca em todos. Diferente dos outros dois filtros abaixo, esse muda a própria busca no Jira, não só o que é mostrado.
-3. A lista abaixo aparece agrupada por dia do período — cada dia mostra as issues em que você logou horas naquele dia específico, com o total de itens e horas do dia, e a descrição do apontamento logo abaixo de cada item (quando existir). Dias sem nenhum apontamento aparecem assim mesmo, em vez de sumirem da lista.
-4. (Opcional) Clique em **Status** para sub-filtrar a lista já trazida por um ou mais status — não refaz a busca no Jira, só reorganiza o que já veio.
-5. (Opcional) Digite no campo de busca (por chave ou resumo da issue) para filtrar ainda mais a lista já trazida — também sem nova chamada ao Jira.
-6. No final, uma seção **Not logged in this period** reúne todas as issues atribuídas a você no período (já filtrado) que não têm apontamento nenhum.
-7. Clicar numa issue abre ela na aba normal do Jira (`/browse/CHAVE`, reaproveitando a mesma aba entre cliques) — é lá que você faz o apontamento, com o **Log work** de sempre.
-8. Depois de todos os filtros, o botão **Open summary in new tab** abre uma aba nova só com um resumo do que está agrupado por dia na tela — sem refazer a busca, sem os dias/itens sem apontamento, com o período e os filtros de fato aplicados no topo. É uma segunda visualização somente-leitura dos mesmos dados, pensada para copiar, revisar ou imprimir fora do side panel estreito.
+2. Abaixo do calendário, a interface é dividida em duas áreas independentes com botões de busca próprios:
+   - **Timesheet**: Busca os seus apontamentos de horas. É afetada **apenas pelo período de datas** selecionado no calendário e lista tudo o que você apontou, sem restrições.
+   - **My Items**: Busca os itens atribuídos a você no período. É afetada pelas datas e pelo filtro de **Projetos** (que restringe a busca na API do Jira), além de sub-filtros locais (Status, Item Type e Busca por texto) que reorganizam a lista já trazida sem nova chamada de rede.
+3. A lista de Timesheet aparece agrupada por dia do período — cada dia mostra as issues em que você logou horas naquele dia específico, com o total de itens e horas do dia, e a descrição do apontamento logo abaixo de cada item (quando existir). Dias sem nenhum apontamento aparecem assim mesmo, em vez de sumirem da lista.
+4. Na área de My Items, a seção de issues mostra as tarefas atribuídas a você. Há também um switch para **Unlogged only** que mostra apenas as que não tiveram apontamento.
+5. Clicar numa issue abre ela na aba normal do Jira (`/browse/CHAVE`, reaproveitando a mesma aba entre cliques) — é lá que você faz o apontamento, com o **Log work** de sempre.
+6. Depois de todos os filtros, o botão **Open summary in new tab** abre uma aba nova só com um resumo do que está agrupado por dia na tela — sem refazer a busca, sem os dias/itens sem apontamento, com o período e os filtros de fato aplicados no topo. É uma segunda visualização somente-leitura dos mesmos dados, pensada para copiar, revisar ou imprimir fora do side panel estreito.
 
 ## Segurança — o que você precisa saber antes de conectar
 
@@ -90,7 +90,7 @@ Gera `dist/jira-timesheet-viewer-v{versão}.zip` com exatamente o que o Chrome c
 
 ## Estado do projeto
 
-Escopo de pesquisa/visualização com leitura de worklogs implementado: conexão guardada em `chrome.storage.session` (memória do navegador, nunca disco), calendário de período, filtro de projetos, filtro de status, filtro de work item (busca por texto), lista agrupada por dia de apontamento (com descrição do worklog) + seção de não-apontados, clique para abrir no Jira, e um botão de resumo somente-leitura numa aba nova. Deliberadamente **ainda não inclui** comparação planejado vs. logado, barra de progresso vs. meta de horas, acordeão/abas ou export CSV — isso foi cortado do escopo a pedido do usuário (ver plano, seção 11), não é um "ainda não chegou lá". O roadmap do que falta (opcional: Start Date, cache) está em [.claude/plano-jira-timesheet-viewer.md](.claude/plano-jira-timesheet-viewer.md).
+Escopo de pesquisa/visualização com leitura de worklogs implementado: conexão guardada em `chrome.storage.session` (memória do navegador, nunca disco), calendário de período, separação das seções em **Timesheet** (busca baseada estritamente em datas, exibindo apontamentos) e **My Items** (busca baseada em datas e projetos, com filtros locais/client-side de status, tipo e texto livre para os seus itens), cada uma com seu próprio botão de busca. Há lista agrupada por dia de apontamento (com descrição do worklog), clique para abrir no Jira, e um botão de resumo somente-leitura numa aba nova. Deliberadamente **ainda não inclui** comparação planejado vs. logado, barra de progresso vs. meta de horas, acordeão/abas ou export CSV — isso foi cortado do escopo a pedido do usuário (ver plano, seção 11), não é um "ainda não chegou lá". O roadmap do que falta (opcional: Start Date, cache) está em [.claude/plano-jira-timesheet-viewer.md](.claude/plano-jira-timesheet-viewer.md).
 
 ## Licença
 

@@ -84,6 +84,25 @@ body {
 
 main#app { padding: 14px; }
 
+.context-section { margin-bottom: 8px; }
+
+.context-heading {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-subtle);
+  margin: 0 0 10px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--accent);
+}
+
+.context-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+
 .calendar-toolbar {
   display: flex;
   align-items: center;
@@ -187,6 +206,59 @@ main#app { padding: 14px; }
 .text-filter input:focus { border-color: var(--accent); outline: none; }
 .text-filter input::placeholder { color: var(--text-subtle); }
 
+.unlogged-toggle-wrapper { margin-bottom: 8px; }
+.unlogged-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warning);
+  cursor: pointer;
+  user-select: none;
+}
+.unlogged-toggle-label input { cursor: pointer; }
+
+.unlogged-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #b76e00;
+  background: #fff0b3;
+  padding: 2px 6px;
+  border-radius: 10px;
+  border: 1px solid #ffe380;
+  white-space: nowrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  .unlogged-badge {
+    color: #ffe380;
+    background: #332900;
+    border-color: #665200;
+  }
+}
+
+.search-button {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.search-button:hover:not(:disabled) { filter: brightness(1.15); }
+.search-button:disabled {
+  background: var(--border);
+  color: var(--text-subtle);
+  cursor: default;
+}
+
 .summary-button {
   display: block;
   width: 100%;
@@ -253,6 +325,7 @@ main#app { padding: 14px; }
 }
 .item-row:hover { background: var(--bg-subtle); }
 .item-row.is-overdue { border-left: 3px solid var(--danger); }
+.item-row.is-unlogged { border-left: 3px solid var(--warning); }
 
 /* Row 1 (key, title+due, start time) is uniformly bold and the same size —
    it reads as one header line, so nothing in it should stand out by weight

@@ -1,118 +1,563 @@
 :root {
   --bg: #ffffff;
-  --bg-subtle: #f4f5f7;
-  --border: #dfe1e6;
+  --bg-subtle: #f7f8fa;
+  --bg-card: #ffffff;
+  --border: #e2e5e9;
+  --border-subtle: #ebecf0;
   --text: #172b4d;
-  --text-subtle: #6b778c;
+  --text-subtle: #5e6c84;
+  --text-muted: #8993a4;
   --accent: #0052cc;
-  --radius: 3px;
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --accent-subtle: #deebff;
+  --accent-hover: #0747a6;
+  --success: #006644;
+  --success-bg: #e3fcef;
+  --warning: #b76e00;
+  --warning-bg: #fff0b3;
+  --warning-border: #ffe380;
+  --radius-sm: 3px;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --shadow-sm: 0 1px 3px rgba(9, 30, 66, 0.08);
+  --shadow: 0 2px 8px rgba(9, 30, 66, 0.08);
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1d2125;
-    --bg-subtle: #22272b;
-    --border: #38414a;
-    --text: #b6c2cf;
-    --text-subtle: #8c9bab;
+    --bg: #14171a;
+    --bg-subtle: #1c2127;
+    --bg-card: #1f242b;
+    --border: #2e3640;
+    --border-subtle: #242b33;
+    --text: #c7d1db;
+    --text-subtle: #92a0b1;
+    --text-muted: #6f7d90;
     --accent: #579dff;
+    --accent-subtle: #1c2d42;
+    --accent-hover: #85b8ff;
+    --success: #36b37e;
+    --success-bg: #143527;
+    --warning: #ffab00;
+    --warning-bg: #332900;
+    --warning-border: #665200;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   }
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
   margin: 0;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.summary-container {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 36px 24px 80px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Level 1: Report Header & KPI Cards
+   ────────────────────────────────────────────────────────────────────── */
+
+.summary-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 24px;
+  margin-bottom: 20px;
+}
+
+.header-main h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px 0;
+  color: var(--text);
+}
+
+.range-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0 0 6px 0;
+}
+
+.filters-label {
+  font-size: 13px;
+  color: var(--text-subtle);
+  margin: 0;
+}
+
+/* KPI Summary Cards */
+.kpi-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.kpi-card {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.kpi-card.kpi-alert {
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+}
+
+.kpi-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-subtle);
+  font-weight: 500;
+}
+
+.kpi-card.kpi-alert .kpi-top {
+  color: var(--warning);
+}
+
+.kpi-icon {
   font-size: 14px;
 }
 
-main { max-width: 720px; margin: 0 auto; padding: 32px 24px 64px; }
+.kpi-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 4px;
+}
 
-h1 { font-size: 20px; margin: 0; }
+.kpi-card.kpi-alert .kpi-value {
+  color: var(--warning);
+}
 
-.range-label { font-size: 15px; color: var(--text); margin: 6px 0 0; }
-.filters-label { font-size: 13px; color: var(--text-subtle); margin: 4px 0 0; }
+/* ──────────────────────────────────────────────────────────────────────
+   TOC / Index Navigation
+   ────────────────────────────────────────────────────────────────────── */
 
-header { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 8px; }
+.summary-toc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 24px;
+}
 
-.item-group-header {
+.toc-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.toc-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.toc-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.toc-item:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.toc-hours {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-subtle);
+  background: var(--bg-subtle);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Level 2: Day Section & Day Header
+   ────────────────────────────────────────────────────────────────────── */
+
+.day-section {
+  margin-bottom: 32px;
+}
+
+.day-header {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
-  text-transform: uppercase;
-  color: var(--text-subtle);
-  padding: 8px 6px;
+  align-items: center;
+  padding: 10px 14px;
   background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
   border-radius: var(--radius);
-  margin-top: 20px;
+  margin-bottom: 12px;
 }
 
-/* Two rows, three columns per worklog:
-     row 1: key       | title + due date   | start time
-     row 2: status    | worklog description| logged hours
-   Same shape as the live panel (see panel.css) — each cell placed
-   explicitly so the two optional ones (due date, description) can be
-   omitted without shifting the rest of the grid. */
-.item-row {
-  display: grid;
-  grid-template-columns: 90px 1fr auto;
-  grid-template-rows: auto auto;
-  column-gap: 10px;
-  row-gap: 4px;
+.day-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.day-index-pill {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.day-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+
+.day-meta-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.day-count-badge {
+  font-size: 12px;
+  color: var(--text-subtle);
+  font-weight: 500;
+}
+
+.day-hours-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--success);
+  background: var(--success-bg);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.day-items-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Level 3: Worklog Card & Items
+   ────────────────────────────────────────────────────────────────────── */
+
+.worklog-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s;
+}
+
+.worklog-card-header {
+  display: flex;
+  justify-content: space-between;
   align-items: baseline;
-  padding: 8px 6px;
-  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-/* Row 1 (key, title+due, start time) is uniformly bold and the same size —
-   it reads as one header line, so nothing in it should stand out by weight
-   or size alone. */
-.item-key { grid-column: 1; grid-row: 1; color: var(--accent); font-weight: 600; }
-
-.item-title-cell {
-  grid-column: 2;
-  grid-row: 1;
+.card-header-left {
   display: flex;
   align-items: baseline;
   gap: 8px;
+  flex: 1;
   min-width: 0;
-  font-weight: 600;
+  flex-wrap: wrap;
 }
-.item-summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.item-due { flex-shrink: 0; color: var(--text-subtle); }
 
-.item-time { grid-column: 3; grid-row: 1; justify-self: end; color: var(--text-subtle); font-weight: 600; }
+.item-index-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
 
-/* Plain colour-coded text, not a pill — the background + border-radius
-   badge was hard to read at this size. */
-.status-chip {
-  grid-column: 1;
-  grid-row: 2;
-  justify-self: start;
+.item-key {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.item-key:hover {
+  text-decoration: underline;
+  color: var(--accent-hover);
+}
+
+.item-summary {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text);
+  display: inline;
+}
+
+.item-type-badge {
   font-size: 11px;
   font-weight: 600;
-  white-space: nowrap;
-}
-.status-chip.new { color: var(--text-subtle); }
-.status-chip.indeterminate { color: var(--accent); }
-.status-chip.done { color: #006644; }
-
-.item-worklog-comment {
-  grid-column: 2;
-  grid-row: 2;
-  min-width: 0;
+  background: var(--bg-subtle);
   color: var(--text-subtle);
-  font-size: 13px;
-  font-style: italic;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  border: 1px solid var(--border-subtle);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
 }
 
-.item-hours-value { grid-column: 3; grid-row: 2; justify-self: end; color: var(--text-subtle); }
+.item-due {
+  font-size: 12px;
+  color: var(--text-muted);
+}
 
-.empty-state { padding: 32px 4px; color: var(--text-subtle); }
+.card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.item-time {
+  font-size: 12px;
+  color: var(--text-subtle);
+  font-weight: 500;
+}
+
+.status-chip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.status-chip.new,
+.status-chip.to-do {
+  background: var(--bg-subtle);
+  color: var(--text-subtle);
+  border: 1px solid var(--border);
+}
+
+.status-chip.indeterminate,
+.status-chip.in-progress {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.status-chip.done {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.item-hours-badge {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Level 4: Worklog Review & Notes Description (Indented Block)
+   ────────────────────────────────────────────────────────────────────── */
+
+.worklog-review-container {
+  margin-top: 10px;
+  margin-left: 20px;
+  padding: 10px 14px;
+  background: var(--bg-subtle);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.worklog-review-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.review-icon {
+  font-size: 13px;
+}
+
+.review-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-subtle);
+}
+
+.review-content-body {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.review-paragraph {
+  margin: 0 0 6px 0;
+}
+
+.review-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.review-spacer {
+  height: 6px;
+}
+
+.review-list {
+  margin: 4px 0 8px 0;
+  padding-left: 20px;
+}
+
+.review-list li {
+  margin-bottom: 3px;
+}
+
+.review-list li:last-child {
+  margin-bottom: 0;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Unlogged / Pending Work Items Section
+   ────────────────────────────────────────────────────────────────────── */
+
+.unlogged-section-container {
+  margin-top: 36px;
+  border-top: 2px dashed var(--border);
+  padding-top: 24px;
+}
+
+.unlogged-header {
+  padding: 10px 14px;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-left: 4px solid var(--warning);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+}
+
+.unlogged-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--warning);
+  margin: 0;
+}
+
+.unlogged-items-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.worklog-card.is-unlogged {
+  border-left: 3px solid var(--warning);
+  background: var(--bg-card);
+}
+
+.unlogged-hours-badge {
+  color: var(--warning);
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Footer & Empty States
+   ────────────────────────────────────────────────────────────────────── */
+
+.summary-footer {
+  margin-top: 48px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.empty-state {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--text-subtle);
+  background: var(--bg-subtle);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Print Stylesheet
+   ────────────────────────────────────────────────────────────────────── */
+
+@media print {
+  body {
+    background: #ffffff;
+    color: #000000;
+    font-size: 12px;
+  }
+
+  .summary-container {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .summary-toc {
+    display: none;
+  }
+
+  .worklog-card,
+  .day-header,
+  .kpi-card {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .worklog-review-container {
+    background: #f8f9fa;
+    border-left-color: #0052cc;
+  }
+}

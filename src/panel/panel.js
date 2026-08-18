@@ -11,15 +11,23 @@ const app = $('app');
 const connectContainer = $('connect-container');
 const calendarEl = $('calendar');
 const monthLabelEl = $('month-label');
+const rangeHint = $('range-hint');
+const periodTotalEl = $('period-total');
+const timesheetStatus = $('timesheet-status');
+const timesheetListEl = $('timesheet-list');
+const searchBtn = $('search-btn');
+const summaryBtn = $('open-summary');
+const searchMyItemsBtn = $('search-my-items-btn');
+
+// Context 2 — My Items
 const projectFilterEl = $('project-filter');
 const statusFilterEl = $('status-filter');
 const issueTypeFilterEl = $('issue-type-filter');
 const workItemFilterInput = $('work-item-filter');
-const summaryBtn = $('open-summary');
-const rangeHint = $('range-hint');
-const periodTotalEl = $('period-total');
-const listStatus = $('list-status');
-const listEl = $('list');
+const unloggedOnlyFilterInput = $('unlogged-only-filter');
+const unloggedCountBadge = $('unlogged-count-badge');
+const myItemsStatus = $('my-items-status');
+const myItemsListEl = $('my-items-list');
 
 // Tracks the tab this panel last opened for "view issue in Jira", so
 // clicking another issue reuses it instead of piling up a new tab per click.
@@ -52,10 +60,16 @@ const state = {
   month: now.getMonth(),
   range: null, // { from, to }
   pendingStart: null,
-  items: [],
-  loading: false,
 
-  // Project filter — narrows what SEARCH's JQL asks for. `selectedProjects`
+  // Context 1 — Timesheet (worklogs in the period)
+  timesheetItems: [],
+  timesheetLoading: false,
+
+  // Context 2 — My Items (assigned issues, ownership view)
+  myItems: [],
+  myItemsLoading: false,
+
+  // Project filter — narrows what SEARCH_MY_ITEMS's JQL asks for. `selectedProjects`
   // is null until the user opens this filter at least once (meaning "no
   // restriction, search every project"); once loaded it's a Set of project
   // keys, defaulting to all of them selected.
@@ -66,9 +80,9 @@ const state = {
   projectsError: false,
   projectsErrorMessage: '',
 
-  // Status filter — a client-side sub-filter over whatever SEARCH already
-  // returned, never touches the network. Reset to "every status selected"
-  // each time a new search comes back.
+  // Status filter — a client-side sub-filter over whatever SEARCH_MY_ITEMS
+  // already returned, never touches the network. Reset to "every status
+  // selected" each time a new search comes back.
   statusOptions: [],
   selectedStatuses: new Set(),
   statusFilterOpen: false,
@@ -85,6 +99,9 @@ const state = {
   // enumerable set) matching against key or summary. Client-side only, same
   // as the status and issue type filters.
   workItemQuery: '',
+
+  // Filter for unlogged items only
+  unloggedOnly: false,
 };
 
 mountConnectForm(connectContainer, { onConnected: onConnected });
@@ -128,15 +145,16 @@ function renderCalendar() {
 }
 
 // Two clicks pick a period (start, then end); any click after that starts a
-// new period. The calendar itself has no per-day click behaviour beyond
-// that — the day-by-day breakdown happens in the list below (renderList),
-// not by clicking individual days here.
+// new period. Selecting a range enables the Search button — the user clicks
+// it explicitly to fire both context searches.
 function handleDayClick(iso) {
   if (!state.pendingStart) {
     state.range = null;
     state.pendingStart = iso;
+    searchBtn.disabled = true;
     renderCalendar();
-    renderList();
+    renderTimesheetList();
+    renderMyItemsList();
     return;
   }
 
@@ -144,8 +162,15 @@ function handleDayClick(iso) {
   const to = iso < state.pendingStart ? state.pendingStart : iso;
   state.pendingStart = null;
   state.range = { from, to };
-  runSearch();
+  searchBtn.disabled = false;
+  if (searchMyItemsBtn) searchMyItemsBtn.disabled = false;
+  rangeHint.textContent = `${formatShortDate(state.range.from)} – ${formatShortDate(state.range.to)}`;
+  renderCalendar();
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Context 2 — My Items: project / status / type / text filters
+// ──────────────────────────────────────────────────────────────────────
 
 function renderProjectFilter() {
   renderMultiSelect(projectFilterEl, {
@@ -187,11 +212,11 @@ async function handleProjectToggleOpen() {
       state.projectOptions = projects.map((p) => ({ value: p.key, label: `${p.key} — ${p.name}` }));
       // A genuinely empty result (account can see zero projects, or the
       // endpoint hiccuped) must NOT become an empty Set — that's the same
-      // shape as "user unchecked every box," which runSearch()/renderList()
-      // read as "search nothing" and use to block every date-range search
-      // from then on, for reasons that have nothing to do with the dates
-      // picked. Leave it null (= no restriction) when there's nothing to
-      // restrict by in the first place.
+      // shape as "user unchecked every box," which runMyItemsSearch()/
+      // renderMyItemsList() read as "search nothing" and use to block every
+      // date-range search from then on, for reasons that have nothing to do
+      // with the dates picked. Leave it null (= no restriction) when there's
+      // nothing to restrict by in the first place.
       state.selectedProjects =
         state.projectOptions.length > 0 ? new Set(state.projectOptions.map((o) => o.value)) : null;
     } catch (err) {
@@ -209,13 +234,11 @@ function handleProjectToggleValue(value) {
   if (state.selectedProjects.has(value)) state.selectedProjects.delete(value);
   else state.selectedProjects.add(value);
   renderProjectFilter();
-  if (state.range) runSearch();
 }
 
 function handleProjectToggleAll(makeSelected) {
   state.selectedProjects = makeSelected ? new Set(state.projectOptions.map((o) => o.value)) : new Set();
   renderProjectFilter();
-  if (state.range) runSearch();
 }
 
 function renderStatusFilter() {
@@ -240,17 +263,17 @@ function handleStatusToggleValue(value) {
   if (state.selectedStatuses.has(value)) state.selectedStatuses.delete(value);
   else state.selectedStatuses.add(value);
   renderStatusFilter();
-  renderList();
+  renderMyItemsList();
 }
 
 function handleStatusToggleAll(makeSelected) {
   state.selectedStatuses = makeSelected ? new Set(state.statusOptions.map((o) => o.value)) : new Set();
   renderStatusFilter();
-  renderList();
+  renderMyItemsList();
 }
 
-function resetStatusFilterFromItems() {
-  const names = [...new Set(state.items.map((item) => item.statusName).filter(Boolean))].sort();
+function resetStatusFilterFromMyItems() {
+  const names = [...new Set(state.myItems.map((item) => item.statusName).filter(Boolean))].sort();
   state.statusOptions = names.map((name) => ({ value: name, label: name }));
   state.selectedStatuses = new Set(names);
 }
@@ -277,17 +300,17 @@ function handleIssueTypeToggleValue(value) {
   if (state.selectedIssueTypes.has(value)) state.selectedIssueTypes.delete(value);
   else state.selectedIssueTypes.add(value);
   renderIssueTypeFilter();
-  renderList();
+  renderMyItemsList();
 }
 
 function handleIssueTypeToggleAll(makeSelected) {
   state.selectedIssueTypes = makeSelected ? new Set(state.issueTypeOptions.map((o) => o.value)) : new Set();
   renderIssueTypeFilter();
-  renderList();
+  renderMyItemsList();
 }
 
-function resetIssueTypeFilterFromItems() {
-  const names = [...new Set(state.items.map((item) => item.issueType).filter(Boolean))].sort();
+function resetIssueTypeFilterFromMyItems() {
+  const names = [...new Set(state.myItems.map((item) => item.issueType).filter(Boolean))].sort();
   state.issueTypeOptions = names.map((name) => ({ value: name, label: name }));
   state.selectedIssueTypes = new Set(names);
 }
@@ -314,20 +337,50 @@ document.addEventListener('click', (e) => {
   }
 });
 
-async function runSearch() {
+// ──────────────────────────────────────────────────────────────────────
+// Searches
+// ──────────────────────────────────────────────────────────────────────
+
+// Context 1 — Timesheet: worklogs the user logged in the period.
+async function runTimesheetSearch() {
+  state.timesheetLoading = true;
+  renderCalendar();
+  renderTimesheetList();
+
+  try {
+    const result = await request('SEARCH_WORKLOGS', {
+      from: state.range.from,
+      to: state.range.to,
+    });
+    state.timesheetItems = result.issues;
+    state.baseUrl = result.baseUrl || state.baseUrl;
+  } catch (err) {
+    if (err.code === 'NOT_CONNECTED') {
+      await refreshConnection();
+      return;
+    }
+    timesheetStatus.textContent = `Something went wrong: ${err.message}`;
+    state.timesheetItems = [];
+  } finally {
+    state.timesheetLoading = false;
+    renderCalendar();
+    renderTimesheetList();
+  }
+}
+
+// Context 2 — My Items: issues assigned to the user.
+async function runMyItemsSearch() {
   // Explicitly zero projects selected means "search nothing", not "no
   // restriction" — skip the network call rather than send a query that
   // can't match anything.
   if (state.selectedProjects && state.selectedProjects.size === 0) {
-    state.items = [];
-    renderCalendar();
-    renderList();
+    state.myItems = [];
+    renderMyItemsList();
     return;
   }
 
-  state.loading = true;
-  renderCalendar();
-  renderList();
+  state.myItemsLoading = true;
+  renderMyItemsList();
 
   const projectKeys =
     state.selectedProjects && state.selectedProjects.size < state.projectOptions.length
@@ -335,50 +388,40 @@ async function runSearch() {
       : [];
 
   try {
-    const result = await request('SEARCH', { from: state.range.from, to: state.range.to, projectKeys });
-    state.items = result.issues;
+    const result = await request('SEARCH_MY_ITEMS', {
+      from: state.range.from,
+      to: state.range.to,
+      projectKeys,
+    });
+    state.myItems = result.issues;
     state.baseUrl = result.baseUrl || state.baseUrl;
-    resetStatusFilterFromItems();
-    resetIssueTypeFilterFromItems();
+    resetStatusFilterFromMyItems();
+    resetIssueTypeFilterFromMyItems();
   } catch (err) {
     if (err.code === 'NOT_CONNECTED') {
       await refreshConnection();
       return;
     }
-    listStatus.textContent = `Something went wrong: ${err.message}`;
-    state.items = [];
+    myItemsStatus.textContent = `Something went wrong: ${err.message}`;
+    state.myItems = [];
   } finally {
-    state.loading = false;
-    renderCalendar();
+    state.myItemsLoading = false;
     renderStatusFilter();
     renderIssueTypeFilter();
-    renderList();
+    renderMyItemsList();
   }
 }
 
-// Shared by renderList() and the "open summary" handler — both need the
-// same status + work-item narrowing applied on top of whatever SEARCH
-// returned, so there's exactly one place that defines "what's currently
-// visible".
-function getVisibleItems() {
-  let visibleItems = state.items.filter((item) => state.selectedStatuses.has(item.statusName));
-  visibleItems = visibleItems.filter((item) => state.selectedIssueTypes.has(item.issueType));
-  if (state.workItemQuery) {
-    visibleItems = visibleItems.filter(
-      (item) =>
-        item.key.toLowerCase().includes(state.workItemQuery) ||
-        item.summary.toLowerCase().includes(state.workItemQuery)
-    );
-  }
-  return visibleItems;
-}
+// ──────────────────────────────────────────────────────────────────────
+// Context 1 — Timesheet rendering
+// ──────────────────────────────────────────────────────────────────────
 
-function renderList() {
-  listEl.innerHTML = '';
-  summaryBtn.disabled = true; // only re-enabled once there's a day-grouped list to summarize
+function renderTimesheetList() {
+  timesheetListEl.innerHTML = '';
+  summaryBtn.disabled = true;
 
   if (!state.range) {
-    listStatus.textContent = 'Pick a start and end date on the calendar to search.';
+    timesheetStatus.textContent = 'Pick a start and end date on the calendar to search.';
     rangeHint.textContent = '';
     periodTotalEl.textContent = '';
     return;
@@ -387,35 +430,18 @@ function renderList() {
   rangeHint.textContent = `${formatShortDate(state.range.from)} – ${formatShortDate(state.range.to)}`;
   periodTotalEl.textContent = '';
 
-  if (state.loading) {
-    listStatus.textContent = 'Loading…';
+  if (state.timesheetLoading) {
+    timesheetStatus.textContent = 'Loading worklogs…';
     return;
   }
 
-  if (state.selectedProjects && state.selectedProjects.size === 0) {
-    listStatus.textContent = 'Select at least one project to search.';
+  if (state.timesheetItems.length === 0) {
+    timesheetStatus.textContent = 'No worklogs found in this period.';
     return;
   }
 
-  if (state.items.length === 0) {
-    listStatus.textContent = 'No issues assigned to you in this period.';
-    return;
-  }
-
-  if (state.selectedStatuses.size === 0) {
-    listStatus.textContent = 'Select at least one status to show items.';
-    return;
-  }
-
-  if (state.selectedIssueTypes.size === 0) {
-    listStatus.textContent = 'Select at least one item type to show items.';
-    return;
-  }
-
-  listStatus.textContent = 'Grouped by day logged. Click an issue to open it in Jira.';
+  timesheetStatus.textContent = 'Grouped by day logged. Click an issue to open it in Jira.';
   summaryBtn.disabled = false;
-
-  const visibleItems = getVisibleItems();
 
   // One group per day in the picked range, oldest first, each showing
   // every worklog logged that day across all issues, in the order they
@@ -425,7 +451,7 @@ function renderList() {
   // visible, not silently skipped.
   let periodTotalSeconds = 0;
   for (const day of enumerateDates(state.range.from, state.range.to)) {
-    const dayEntries = collectDayEntries(visibleItems, day);
+    const dayEntries = collectDayEntries(state.timesheetItems, day);
     const uniqueItemCount = new Set(dayEntries.map(({ item }) => item.key)).size;
     const dayTotalSeconds = dayEntries.reduce((sum, { entry }) => sum + entry.seconds, 0);
     periodTotalSeconds += dayTotalSeconds;
@@ -437,33 +463,145 @@ function renderList() {
           ).toFixed(1)}h`
         : `${formatShortDate(day)} · No worklogs`;
 
-    listEl.appendChild(renderGroup(title, dayEntries));
+    timesheetListEl.appendChild(renderGroup(title, dayEntries));
   }
   periodTotalEl.textContent = `Total logged: ${(periodTotalSeconds / 3600).toFixed(1)}h`;
+}
 
-  // Everything assigned to you in this period with zero logged time across
-  // the whole range, regardless of which day(s) it's due — the "what still
-  // needs a worklog" list. No worklog entry, so no description either.
+// ──────────────────────────────────────────────────────────────────────
+// Context 2 — My Items rendering
+// ──────────────────────────────────────────────────────────────────────
+
+// Applies status + type + text + unlogged filters over whatever
+// SEARCH_MY_ITEMS returned — exactly one place defines "what's currently
+// visible" in the My Items list.
+function getVisibleMyItems() {
+  let visibleItems = state.myItems.filter((item) => state.selectedStatuses.has(item.statusName));
+  visibleItems = visibleItems.filter((item) => state.selectedIssueTypes.has(item.issueType));
+  if (state.workItemQuery) {
+    visibleItems = visibleItems.filter(
+      (item) =>
+        item.key.toLowerCase().includes(state.workItemQuery) ||
+        item.summary.toLowerCase().includes(state.workItemQuery)
+    );
+  }
+  if (state.unloggedOnly) {
+    visibleItems = visibleItems.filter((item) => {
+      const total = Object.values(item.logsByDay ?? {}).reduce((sum, log) => sum + log.seconds, 0);
+      return total === 0;
+    });
+  }
+  return visibleItems;
+}
+
+function renderMyItemsList() {
+  myItemsListEl.innerHTML = '';
+
+  if (!state.range) {
+    myItemsStatus.textContent = 'Pick a date range above to see your assigned items.';
+    return;
+  }
+
+  if (state.myItemsLoading) {
+    myItemsStatus.textContent = 'Loading items…';
+    return;
+  }
+
+  if (state.selectedProjects && state.selectedProjects.size === 0) {
+    myItemsStatus.textContent = 'Select at least one project to search.';
+    return;
+  }
+
+  if (state.myItems.length === 0) {
+    myItemsStatus.textContent = 'No issues assigned to you in this period.';
+    return;
+  }
+
+  if (state.selectedStatuses.size === 0) {
+    myItemsStatus.textContent = 'Select at least one status to show items.';
+    return;
+  }
+
+  if (state.selectedIssueTypes.size === 0) {
+    myItemsStatus.textContent = 'Select at least one item type to show items.';
+    return;
+  }
+
+  myItemsStatus.textContent = 'Click an issue to open it in Jira.';
+
+  const visibleItems = getVisibleMyItems();
+
+  // Count unlogged items for the badge (based on base-filtered items,
+  // before the text and unloggedOnly filters narrow further).
+  const baseVisible = state.myItems
+    .filter((item) => state.selectedStatuses.has(item.statusName))
+    .filter((item) => state.selectedIssueTypes.has(item.issueType));
+
+  const unloggedCount = baseVisible.filter((item) => {
+    const total = Object.values(item.logsByDay ?? {}).reduce((sum, log) => sum + log.seconds, 0);
+    return total === 0;
+  }).length;
+
+  if (unloggedCountBadge) {
+    if (unloggedCount > 0) {
+      unloggedCountBadge.textContent = `⚠️ ${unloggedCount} unlogged`;
+      unloggedCountBadge.title = `${unloggedCount} item(s) without logged hours in this period`;
+      unloggedCountBadge.hidden = false;
+    } else {
+      unloggedCountBadge.hidden = true;
+    }
+  }
+
+  // All items as a flat "Not logged in this period" group — the ownership
+  // view is about what you're responsible for, with unlogged emphasis.
   const notLogged = visibleItems.filter((item) => {
     const total = Object.values(item.logsByDay ?? {}).reduce((sum, log) => sum + log.seconds, 0);
     return total === 0;
   });
-  listEl.appendChild(
-    renderGroup(
-      `Not logged in this period (${notLogged.length})`,
-      notLogged.map((item) => ({ item, entry: { seconds: item.estimateSeconds, comment: '' } }))
-    )
-  );
+
+  const logged = visibleItems.filter((item) => {
+    const total = Object.values(item.logsByDay ?? {}).reduce((sum, log) => sum + log.seconds, 0);
+    return total > 0;
+  });
+
+  if (notLogged.length > 0) {
+    myItemsListEl.appendChild(
+      renderGroup(
+        `Not logged in this period (${notLogged.length})`,
+        notLogged.map((item) => ({ item, entry: { seconds: item.estimateSeconds, comment: '' }, isUnloggedGroup: true }))
+      )
+    );
+  }
+
+  if (logged.length > 0) {
+    myItemsListEl.appendChild(
+      renderGroup(
+        `Logged in this period (${logged.length})`,
+        logged.map((item) => {
+          const totalSec = Object.values(item.logsByDay ?? {}).reduce((s, l) => s + l.seconds, 0);
+          return { item, entry: { seconds: totalSec, comment: '' } };
+        })
+      )
+    );
+  }
+
+  if (visibleItems.length === 0) {
+    myItemsStatus.textContent = 'No items match the current filters.';
+  }
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Shared rendering helpers
+// ──────────────────────────────────────────────────────────────────────
 
 // Flattens every visible issue's worklogs for `day` into one list, sorted
 // by the worklog's own timestamp. The unit here is a worklog, not an
 // issue — the same issue can log more than once in a day, and each of
 // those needs to interleave with other issues' worklogs by time rather
 // than staying grouped under one row per issue.
-function collectDayEntries(visibleItems, day) {
+function collectDayEntries(items, day) {
   const dayEntries = [];
-  for (const item of visibleItems) {
+  for (const item of items) {
     const dayLog = item.logsByDay?.[day];
     if (!dayLog) continue;
     for (const entry of dayLog.entries) {
@@ -500,9 +638,10 @@ function renderWorklogRow(item, entry, today) {
   const comment = entry?.comment ?? '';
   const started = entry?.started;
   const overdue = item.due && item.due < today && item.statusCategory !== 'done';
+  const isUnlogged = entry?.isUnloggedGroup || (!seconds && !started);
 
   const row = document.createElement('div');
-  row.className = `item-row${overdue ? ' is-overdue' : ''}`;
+  row.className = `item-row${overdue ? ' is-overdue' : ''}${isUnlogged ? ' is-unlogged' : ''}`;
   row.title = 'Open in Jira';
 
   const key = document.createElement('span');
@@ -559,6 +698,10 @@ function renderWorklogRow(item, entry, today) {
   return row;
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Summary helpers
+// ──────────────────────────────────────────────────────────────────────
+
 // Only describes filters that actually narrow something — "everything
 // selected" (the default) isn't a filter that was applied, so it's left out
 // rather than listed as "Projects: all of them".
@@ -580,29 +723,32 @@ function buildFilterSummary() {
   return parts;
 }
 
-// The data behind "Open summary in new tab" — same day grouping as the
-// live list, but skipping days and items with nothing logged: this is a
-// record of work done, not a gap-finder like the panel itself, so there's
-// no "No worklogs" placeholder and no "Not logged in this period" group.
+// The data behind "Open summary in new tab" — day grouping from the
+// Timesheet context, skipping days with nothing logged: this is a record
+// of work done.
 function buildDaySummaries() {
-  const visibleItems = getVisibleItems();
   const days = [];
 
   for (const day of enumerateDates(state.range.from, state.range.to)) {
-    const dayEntries = collectDayEntries(visibleItems, day);
+    const dayEntries = collectDayEntries(state.timesheetItems, day);
     if (dayEntries.length === 0) continue;
 
     const uniqueItemCount = new Set(dayEntries.map(({ item }) => item.key)).size;
     const totalSeconds = dayEntries.reduce((sum, { entry }) => sum + entry.seconds, 0);
     days.push({
+      date: day,
       label: `${formatShortDate(day)} · ${uniqueItemCount} ${uniqueItemCount === 1 ? 'item' : 'items'} · ${(
         totalSeconds / 3600
       ).toFixed(1)}h`,
+      itemCount: uniqueItemCount,
+      totalHours: totalSeconds / 3600,
+      totalSeconds,
       items: dayEntries.map(({ item, entry }) => ({
         key: item.key,
         summary: item.summary,
         statusName: item.statusName,
         statusCategory: item.statusCategory,
+        issueType: item.issueType,
         due: item.due,
         hours: entry.seconds / 3600,
         comment: entry.comment,
@@ -613,6 +759,27 @@ function buildDaySummaries() {
 
   return days;
 }
+
+// Unlogged items from the My Items context for the summary page.
+function buildUnloggedSummaries() {
+  const visibleItems = getVisibleMyItems();
+  const notLogged = visibleItems.filter((item) => {
+    const total = Object.values(item.logsByDay ?? {}).reduce((sum, log) => sum + log.seconds, 0);
+    return total === 0;
+  });
+  return notLogged.map((item) => ({
+    key: item.key,
+    summary: item.summary,
+    statusName: item.statusName,
+    statusCategory: item.statusCategory,
+    issueType: item.issueType,
+    due: item.due,
+  }));
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Event listeners
+// ──────────────────────────────────────────────────────────────────────
 
 $('prev-month').addEventListener('click', () => {
   state.month -= 1;
@@ -636,7 +803,8 @@ disconnectBtn.addEventListener('click', async () => {
   await request('DISCONNECT');
   state.range = null;
   state.pendingStart = null;
-  state.items = [];
+  state.timesheetItems = [];
+  state.myItems = [];
   state.projectOptions = [];
   state.selectedProjects = null;
   state.projectFilterOpen = false;
@@ -650,13 +818,36 @@ disconnectBtn.addEventListener('click', async () => {
   state.issueTypeFilterOpen = false;
   state.workItemQuery = '';
   workItemFilterInput.value = '';
+  state.unloggedOnly = false;
+  if (unloggedOnlyFilterInput) unloggedOnlyFilterInput.checked = false;
+  searchBtn.disabled = true;
+  if (searchMyItemsBtn) searchMyItemsBtn.disabled = true;
   summaryBtn.disabled = true;
   await refreshConnection();
 });
 
+// Explicit search button for Timesheet
+searchBtn.addEventListener('click', () => {
+  if (state.range) runTimesheetSearch();
+});
+
+// Explicit search button for My Items
+if (searchMyItemsBtn) {
+  searchMyItemsBtn.addEventListener('click', () => {
+    if (state.range) runMyItemsSearch();
+  });
+}
+
+if (unloggedOnlyFilterInput) {
+  unloggedOnlyFilterInput.addEventListener('change', () => {
+    state.unloggedOnly = unloggedOnlyFilterInput.checked;
+    renderMyItemsList();
+  });
+}
+
 workItemFilterInput.addEventListener('input', () => {
   state.workItemQuery = workItemFilterInput.value.trim().toLowerCase();
-  renderList();
+  renderMyItemsList();
 });
 
 // Hands the currently filtered, day-grouped data to a plain extension page
@@ -667,9 +858,12 @@ workItemFilterInput.addEventListener('input', () => {
 summaryBtn.addEventListener('click', async () => {
   const payload = {
     rangeLabel: `${formatShortDate(state.range.from)} – ${formatShortDate(state.range.to)}`,
+    range: state.range,
+    baseUrl: state.baseUrl,
     filters: buildFilterSummary(),
     timeZone: state.timeZone,
     days: buildDaySummaries(),
+    unlogged: buildUnloggedSummaries(),
   };
   await chrome.storage.session.set({ summaryPayload: payload });
   chrome.tabs.create({ url: chrome.runtime.getURL('src/summary/summary.html') });

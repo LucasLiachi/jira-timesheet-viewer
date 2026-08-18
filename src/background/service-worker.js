@@ -1,6 +1,6 @@
 import { JiraClient, searchAll, mapWithLimit, fetchIssueWorklogs, fetchAllProjects } from '../lib/jira-client.js';
-import { buildMyItemsJql } from '../lib/jql.js';
-import { dayBoundsMs, isoDateInTimeZone } from '../lib/dates.js';
+import { buildMyItemsJql, buildWorklogJql } from '../lib/jql.js';
+import { isoDateInTimeZone } from '../lib/dates.js';
 import { encryptToken, decryptToken, clearKey } from '../lib/secure-store.js';
 
 // The connection (base URL, e-mail, token) lives in chrome.storage.session:
@@ -129,32 +129,94 @@ const handlers = {
   },
 
   /**
-   * Assigned issues active inside [from, to] (optionally narrowed to
-   * `projectKeys`), each annotated with the user's own worklogs per day in
-   * that window (`logsByDay`: `{ seconds, entries }` per 'YYYY-MM-DD', where
-   * `entries` is one `{ seconds, comment, started }` per individual
-   * worklog — the panel sorts these by `started` across every issue to
-   * render the day in chronological order, not grouped by issue). The panel
-   * never needs a second request per day. Logging time still happens in
-   * Jira itself (see `key`, which the panel turns into a link to the
-   * issue's own browse page) — this only reads what's already there.
+   * Timesheet context — issues that have worklogs logged by the user in [from, to].
+   * Uses buildWorklogJql (worklogAuthor = currentUser() AND worklogDate) to query
+   * candidate issues, then fetches and aggregates worklog details per day.
    */
-  async SEARCH({ from, to, projectKeys = [] }) {
-    const { client, baseUrl, accountId, timeZone } = await requireConnection();
+  async SEARCH_WORKLOGS({ from, to }) {
+    const { client, baseUrl, accountId, timeZone, email, displayName } = await requireConnection();
 
-    const jql = buildMyItemsJql({ from, to, projectKeys });
+    const jql = buildWorklogJql({ from, to });
     const rawIssues = await searchAll(client, { jql, fields: ITEM_FIELDS });
-    const { startMs, endMs } = dayBoundsMs(from, to, timeZone);
 
-    const issues = await mapWithLimit(rawIssues, WORKLOG_CONCURRENCY, async (issue) => {
-      const worklogs = await fetchIssueWorklogs(client, issue.id, startMs, endMs);
-      const mine = worklogs.filter((w) => w.author?.accountId === accountId);
+    const allIssues = await mapWithLimit(rawIssues, WORKLOG_CONCURRENCY, async (issue) => {
+      const worklogs = await fetchIssueWorklogs(client, issue.id);
+      const mine = worklogs.filter((w) => {
+        if (!w.author) return false;
+        return w.author.accountId === accountId ||
+               (email && w.author.emailAddress === email) ||
+               w.author.key === accountId ||
+               w.author.name === accountId ||
+               (displayName && w.author.displayName === displayName);
+      });
 
       const logsByDay = {};
       for (const wl of mine) {
         if (!wl.started) continue;
         const startedMs = Date.parse(wl.started);
         const day = isoDateInTimeZone(startedMs, timeZone);
+        
+        // Garantir no cliente que só pegamos os worklogs que realmente caem no período
+        if (day < from || day > to) continue;
+
+        const entry = logsByDay[day] ?? { seconds: 0, entries: [] };
+        const seconds = wl.timeSpentSeconds ?? 0;
+        entry.seconds += seconds;
+        const comment = typeof wl.comment === 'string' ? wl.comment.trim() : '';
+        entry.entries.push({ seconds, comment, started: startedMs });
+        logsByDay[day] = entry;
+      }
+
+      return {
+        key: issue.key,
+        summary: issue.fields.summary,
+        statusName: issue.fields.status?.name ?? '',
+        statusCategory: issue.fields.status?.statusCategory?.key ?? 'new',
+        issueType: issue.fields.issuetype?.name ?? '',
+        due: issue.fields.duedate ?? null,
+        estimateSeconds: issue.fields.timetracking?.originalEstimateSeconds ?? 0,
+        logsByDay,
+      };
+    });
+
+    // Keep only issues that actually have worklogs from this user in the period.
+    const issues = allIssues.filter((issue) => Object.keys(issue.logsByDay).length > 0);
+
+    return { from, to, baseUrl, issues };
+  },
+
+  /**
+   * My Items context — issues assigned to the current user, active inside
+   * [from, to] (optionally narrowed to `projectKeys`). Each issue is
+   * annotated with the user's worklogs per day so the panel can identify
+   * which items have zero logged time in the period.
+   */
+  async SEARCH_MY_ITEMS({ from, to, projectKeys = [] }) {
+    const { client, baseUrl, accountId, timeZone, email, displayName } = await requireConnection();
+
+    const jql = buildMyItemsJql({ from, to, projectKeys });
+    const rawIssues = await searchAll(client, { jql, fields: ITEM_FIELDS });
+
+    const issues = await mapWithLimit(rawIssues, WORKLOG_CONCURRENCY, async (issue) => {
+      const worklogs = await fetchIssueWorklogs(client, issue.id);
+      const mine = worklogs.filter((w) => {
+        if (!w.author) return false;
+        return w.author.accountId === accountId ||
+               (email && w.author.emailAddress === email) ||
+               w.author.key === accountId ||
+               w.author.name === accountId ||
+               (displayName && w.author.displayName === displayName);
+      });
+
+      const logsByDay = {};
+      for (const wl of mine) {
+        if (!wl.started) continue;
+        const startedMs = Date.parse(wl.started);
+        const day = isoDateInTimeZone(startedMs, timeZone);
+        
+        // Garantir no cliente que só pegamos os worklogs que realmente caem no período
+        if (day < from || day > to) continue;
+
         const entry = logsByDay[day] ?? { seconds: 0, entries: [] };
         const seconds = wl.timeSpentSeconds ?? 0;
         entry.seconds += seconds;

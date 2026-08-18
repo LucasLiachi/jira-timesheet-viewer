@@ -2,19 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Jira Worklog Summary</title>
     <link rel="stylesheet" href="summary.css" />
   </head>
   <body>
-    <main>
-      <header>
-        <h1>Jira Worklog Summary</h1>
-        <p id="range-label" class="range-label"></p>
-        <p id="filters-label" class="filters-label"></p>
+    <div class="summary-container">
+      <header class="summary-header">
+        <div class="header-main">
+          <h1>Jira Worklog Summary</h1>
+          <p id="range-label" class="range-label"></p>
+          <div id="filters-container" class="filters-container">
+            <p id="filters-label" class="filters-label"></p>
+          </div>
+        </div>
+
+        <div id="kpi-metrics" class="kpi-metrics"></div>
       </header>
 
-      <section id="days"></section>
-    </main>
+      <nav id="summary-toc" class="summary-toc" aria-label="Day Index"></nav>
+
+      <main id="summary-main">
+        <section id="days" class="days-section" aria-label="Logged Days"></section>
+        <section id="unlogged" class="unlogged-section" aria-label="Pending Unlogged Work Items"></section>
+      </main>
+
+      <footer class="summary-footer">
+        <p id="footer-meta">Jira Timesheet Viewer — Read-only Review Summary</p>
+      </footer>
+    </div>
     <script type="module" src="summary.js"></script>
   </body>
 </html>
