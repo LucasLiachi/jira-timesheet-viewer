@@ -157,8 +157,7 @@ This tool searches by date range (Timesheet) or by date range plus project/statu
 │  [   Open summary in new tab        ]       │
 │  Jul 20 – Jul 26, 2026    Total logged: 17.0h│
 ├────────────────────────────────────────────┤
-│  Grouped by day logged. Click an issue to   │
-│  open it in Jira.                           │
+│  Click an issue to open it in Jira.         │
 │  Jul 14 · 2 items · 8.0h                    │
 │    PROJ-1  Fix login redirect · Jul 22  09:00 │
 │    In Progress                           4.0h │

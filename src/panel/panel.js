@@ -440,7 +440,7 @@ function renderTimesheetList() {
     return;
   }
 
-  timesheetStatus.textContent = 'Grouped by day logged. Click an issue to open it in Jira.';
+  timesheetStatus.textContent = 'Click an issue to open it in Jira.';
   summaryBtn.disabled = false;
 
   // One group per day in the picked range, oldest first, each showing
