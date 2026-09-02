@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Jira Timesheet Viewer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Search and view your assigned Jira issues in a date range.",
   "permissions": [
     "storage",
