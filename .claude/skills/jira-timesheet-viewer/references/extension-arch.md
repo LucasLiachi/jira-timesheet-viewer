@@ -38,7 +38,7 @@ MV3-specific mechanics for this extension.
 }
 ```
 
-This manifest lists `alarms` because a future cache-refresh phase (Phase 4 in the current plan, `plano-jira-timesheet-viewer.md` §8) might need it. **What's actually shipped does not use `chrome.alarms` anywhere and does not declare it** — an unused permission is exactly what the Chrome Web Store's "narrowest permissions necessary" policy flags in review (see `CLAUDE.md`). Add `alarms` back to `manifest.json` only in the same change that starts calling `chrome.alarms`, not before.
+**What's actually shipped does not use `chrome.alarms` anywhere and does not declare it** — an unused permission is exactly what the Chrome Web Store's "narrowest permissions necessary" policy flags in review (see `CLAUDE.md`). Query caching, which would be the reason to add it, is out of scope. Add `alarms` back to `manifest.json` only in the same change that starts calling `chrome.alarms`, not before.
 
 `host_permissions` is what lets the service worker bypass CORS. Without it, every request fails with an opaque network error rather than a useful message.
 
@@ -90,17 +90,18 @@ export async function request(type, payload = {}) {
 
 Message types used by the extension:
 
-| Type | Payload | Returns | Status |
-|---|---|---|---|
-| `CONNECT` | `{ baseUrl, email, token }` | `{ displayName, accountId, timeZone }` | shipped |
-| `GET_CONNECTION_STATUS` | — | `{ connected, displayName?, accountId?, baseUrl?, timeZone? }` | shipped |
-| `DISCONNECT` | — | `{ disconnected: true }` | shipped |
-| `SEARCH` | `{ from, to, projectKeys }` | `{ from, to, baseUrl, issues: Issue[] }` — `key, summary, statusName, statusCategory, due, estimateSeconds, logsByDay` per issue, where `logsByDay` is `{ 'YYYY-MM-DD': { seconds, comments: string[] } }` for the user's own worklogs in `[from, to]` | shipped |
-| `GET_PROJECTS` | — | `{ projects: [{ key, name }] }` | shipped |
-| `RESOLVE_START_FIELD` | `{ force }` | `{ id, candidates }` | future — Phase 3, optional |
-| `CLEAR_CACHE` | — | `{ cleared: true }` | future — Phase 4 |
+| Type | Payload | Returns |
+|---|---|---|
+| `CONNECT` | `{ baseUrl, email, token, remember? }` | `{ displayName, accountId, timeZone }` — `remember: true` also encrypts and persists the connection, see Non-negotiables |
+| `GET_CONNECTION_STATUS` | — | `{ connected, displayName?, accountId?, baseUrl?, timeZone? }` |
+| `DISCONNECT` | — | `{ disconnected: true }` |
+| `SEARCH_MY_ITEMS` | `{ from, to, projectKeys? }` | `{ from, to, baseUrl, issues: Issue[] }` — My Items context |
+| `SEARCH_WORKLOGS` | `{ from, to }` | `{ from, to, baseUrl, issues: Issue[] }` — Timesheet context, via `buildWorklogJql` instead of `buildMyItemsJql` |
+| `GET_PROJECTS` | — | `{ projects: [{ key, name }] }` |
 
-`SEARCH` does one paginated `searchAll` call for the issue list (JQL narrowed by `projectKeys` when non-empty — see `jira-api.md` §5), then one `fetchIssueWorklogs` call per issue (via `mapWithLimit`, concurrency 5) to build `logsByDay`, summing `timeSpentSeconds` and collecting non-empty `comment` strings per day. This was cut from scope at one point and reinstated the same day at the user's request (see `plano-jira-timesheet-viewer.md` §11 for the full timeline) — the panel derives its entire day-grouped view, the worklog descriptions, and the "not logged" list from this one response; it never asks the service worker again per day. Status filtering happens entirely in the panel, over this same response — there's no message for it.
+Both `SEARCH_*` handlers return the same `Issue` shape: `{ key, summary, statusName, statusCategory, issueType, due, estimateSeconds, logsByDay }`, where `logsByDay` is `{ 'YYYY-MM-DD': { seconds, entries: [{ seconds, comment, started }] } }` for the user's own worklogs in `[from, to]` — `entries` keeps one record per worklog (not a flattened `comments` array) so the panel can show each worklog's own time alongside its own description.
+
+Each does one paginated `searchAll` call for the issue list (`SEARCH_MY_ITEMS` narrows the JQL by `projectKeys` when non-empty — see `jira-api.md` §5), then one `fetchIssueWorklogs` call per issue (via `mapWithLimit`, concurrency 5) to build `logsByDay`. The panel derives its entire day-grouped view, the worklog descriptions, and (for My Items) the "not logged" list from this one response; it never asks the service worker again per day. Status and type filtering happen entirely in the panel, over this same response — there's no message for either.
 
 `GET_PROJECTS` is called lazily, once, the first time the user opens the project filter popover — not eagerly on connect. The panel caches the result in memory for the rest of that panel session.
 
@@ -156,14 +157,13 @@ An open port keeps the worker alive while the query runs, which is exactly what'
 | Data | Area | Why |
 |---|---|---|
 | Jira base URL, e-mail, API token, `accountId`, `displayName`, `timeZone` | `chrome.storage.session`, cached in a module-level variable | corporate connection data — memory-only, cleared when the browser fully closes, never written to disk. The module-level cache avoids an `await chrome.storage.session.get(...)` on every single request within one worker lifetime |
-| `persistedConnection` (`{ baseUrl, email, accountId, displayName, timeZone, tokenCiphertext }`) | `chrome.storage.local`, **opt-in only** | written only when the user checks "Stay connected on this device" on the connect form. `tokenCiphertext` (`{ iv, ciphertext }`, both base64) is the *only* form the token takes here — never plaintext. Encrypted/decrypted by `../lib/secure-store.js` using a non-extractable AES-GCM `CryptoKey` that itself lives only in the service worker's IndexedDB (`jtv-keystore`), never in `chrome.storage`. See §5a below and the Non-negotiables changelog note (2026-07-24) in `SKILL.md` for the full reasoning and honest limits |
+| `persistedConnection` (`{ baseUrl, email, accountId, displayName, timeZone, tokenCiphertext }`) | `chrome.storage.local`, **opt-in only** | written only when the user checks "Stay connected on this device" on the connect form. `tokenCiphertext` (`{ iv, ciphertext }`, both base64) is the *only* form the token takes here — never plaintext. Encrypted/decrypted by `../lib/secure-store.js` using a non-extractable AES-GCM `CryptoKey` that itself lives only in the service worker's IndexedDB (`jtv-keystore`), never in `chrome.storage`. See §5a below and the Non-negotiables in `SKILL.md` for the full reasoning and honest limits |
 | `summaryPayload` (`{ rangeLabel, filters, days }`) | `chrome.storage.session` | one-shot handoff from `panel.js` to the summary page it just opened in a new tab — not a session like the connection, just the shortest-lived thing that isn't a URL query string. `summary.js` reads it once and immediately `remove()`s the key, so reopening the summary URL directly later (not via the panel's button) shows an empty state instead of a stale report |
-| Workday hours | `chrome.storage.local` | preference, not a credential — not sensitive, safe to persist |
-| `startDateFieldId`, `deploymentType` | `chrome.storage.local` | expensive to rediscover, not sensitive on their own (future — Phase 3) |
+| Workday hours | `chrome.storage.local` | preference, not a credential — not sensitive, safe to persist. Not yet consumed by any view — see `ui-spec.md` §6 |
 
-`chrome.storage.local` is **not encrypted** and survives browser restarts indefinitely — anything with filesystem access to the browser profile can read it, which is exactly why the *default* connection path never touches it. `chrome.storage.session` is different: it's memory-only, the browser itself clears it on full close, and it's never written to the profile on disk. It does survive a service worker being torn down for idle (~30s) — that's the whole point of using it here (see the Non-negotiables changelog note in `SKILL.md`): the original design kept the connection in a plain module-level variable only, and that variable dying with every idle teardown was the actual source of "constantly re-entering credentials", which the user reported as excessive friction. Reconstructing a `JiraClient` from the stored `{ baseUrl, email, token }` on rehydration (see `service-worker.js`'s `loadConnection()`) is required — a `JiraClient` instance itself can't be serialized into `chrome.storage`.
+`chrome.storage.local` is **not encrypted** and survives browser restarts indefinitely — anything with filesystem access to the browser profile can read it, which is exactly why the *default* connection path never touches it. `chrome.storage.session` is different: it's memory-only, the browser itself clears it on full close, and it's never written to the profile on disk. It does survive a service worker being torn down for idle (~30s), which is the whole point of using it here instead of a plain module-level variable (which would die with every idle teardown). Reconstructing a `JiraClient` from the stored `{ baseUrl, email, token }` on rehydration (see `service-worker.js`'s `loadConnection()`) is required — a `JiraClient` instance itself can't be serialized into `chrome.storage`.
 
-Moving the connection into `chrome.storage.local` unconditionally, or storing the token there in plaintext "for even less friction", is still off the table without checking with the user first. What *is* now implemented (2026-07-24, opt-in, unchecked by default) is `persistedConnection` above — see §5a.
+Moving the connection into `chrome.storage.local` unconditionally, or storing the token there in plaintext "for even less friction", is off the table without checking with the user first. `persistedConnection` above (opt-in, unchecked by default) is the one sanctioned exception — see §5a.
 
 ### 5a. Opt-in persistent connection (`secure-store.js`)
 

@@ -123,7 +123,7 @@ The connection lives in `chrome.storage.session` (see `extension-arch.md` §5) �
 
 Field labels and helper text: `Jira base URL` (placeholder `https://your-domain.atlassian.net`); `Email`; `API token` (password input, helper text `Create a token at id.atlassian.com under Security → API tokens.`); and, under the fields, the fixed disclosure line `Kept in memory for this browser session by default — never written to disk unless you check the box below.` in `--text-subtle`. That line is not optional copy — it's the one place the user is told that this form's data lives in session memory, not on disk, unless they opt into the checkbox below it.
 
-Below that, a checkbox, **unchecked by default**: `Stay connected on this device`, with a helper line under it in `--text-subtle`: `Encrypts the token with a key that only exists in this browser profile — useless if copied elsewhere, and erased on Disconnect.` Checking it persists an encrypted copy of the token across browser restarts (see `extension-arch.md` §5a for the crypto — non-extractable WebCrypto key in IndexedDB, ciphertext in `chrome.storage.local`). This is opt-in, per connection, not a global setting — see the Non-negotiables changelog note (2026-07-24) in `SKILL.md`.
+Below that, a checkbox, **unchecked by default**: `Stay connected on this device`, with a helper line under it in `--text-subtle`: `Encrypts the token with a key that only exists in this browser profile — useless if copied elsewhere, and erased on Disconnect.` Checking it persists an encrypted copy of the token across browser restarts (see `extension-arch.md` §5a for the crypto — non-extractable WebCrypto key in IndexedDB, ciphertext in `chrome.storage.local`). This is opt-in, per connection, not a global setting — see the Non-negotiables section in `SKILL.md`.
 
 The inputs carry `autocomplete="url"` / `"username"` / `"current-password"` — deliberate, not filler. They're the standard hint for the user's own password manager (browser-native or third-party) to recognize this as a login form; see README.md "Usando um gerenciador de senhas" for what that does and doesn't make possible (third-party managers can't autofill *into* this form — one extension can't reach into another's page — so the documented path there is copy-paste from a saved vault entry). Don't remove these attributes as "unused."
 
@@ -135,7 +135,7 @@ A small `Disconnect` text link appears next to the subtitle only when connected 
 
 ## 3. Side panel shell — search, display, and what's logged per day
 
-This tool searches assigned issues by date range and shows, per day in that range, which of them have a worklog and how many hours — plus a trailing list of everything with no worklog anywhere in the period. It has no "action" beyond opening an issue in Jira; it never creates or edits a worklog. The two-tab shell with a separate `Timesheet` tab, collapsible accordion, progress bars vs. a daily target, and an hour-based footer total that earlier drafts of this doc described are still parked in `plano-jira-timesheet-viewer.md` §11 — day-level worklog data itself is no longer parked (it was cut once, then reinstated the same day), but that richer presentation is. Don't build toward tabs/accordion/progress-bars without the user asking again.
+This tool searches by date range (Timesheet) or by date range plus project/status/type/text filters (My Items) and shows, per day in range, which issues have a worklog and how many hours — plus, in My Items, a trailing list of everything with no worklog anywhere in the period. It has no "action" beyond opening an issue in Jira; it never creates or edits a worklog. A collapsible accordion, progress bars vs. a daily target, and an hour-based footer total are a separate, unbuilt design — see §5. Don't build toward those without the user asking again.
 
 ### 3a. Shell (shipped)
 
@@ -303,9 +303,9 @@ Sortable columns: `Key`, `Due`, `Logged`. Clicking a header toggles ascending/de
 
 ---
 
-## 5. Timesheet tab (parked — out of scope)
+## 5. Accordion, progress bar & Planning (parked — out of scope)
 
-Worklog data itself is no longer out of scope (see §3a) — what's described in this section specifically is: a separate tab, a collapsible accordion, progress bars against a daily-hours target, and the Planning sub-view (planned vs. logged). None of that is implemented, and none of it is the "next phase" — treat it as a design left on ice per `plano-jira-timesheet-viewer.md` §11, kept in case the user asks for it again, not a queue to work through.
+The shipped Timesheet (§3a) is a flat day-grouped list, not what's described below. This section is a different, unbuilt design: a collapsible accordion, progress bars against a daily-hours target, and a Planning sub-view (planned vs. logged). None of it is implemented and none of it is a queued "next phase" — it's a design kept on file in case the user asks for it again, nothing more.
 
 An accordion, one section per day in the range, newest first. Days with no worklogs still render — an invisible gap reads as a loading bug, and the whole point is spotting missing entries.
 
@@ -354,19 +354,15 @@ Planned hours come from `originalEstimateSeconds` spread evenly across working d
 
 ## 6. Options page
 
-There is deliberately no Connection section here — base URL, e-mail and API token are entered on the Connect form (§2) at the moment of use, never on a persistent settings screen. Options only holds things that are safe to keep on disk:
-
-**Fields**
-- `Start date field` — select populated from discovery, plus `Auto-detect` and `None`
-- Button `Re-detect fields`
+There is deliberately no Connection section here — base URL, e-mail and API token are entered on the Connect form (§2) at the moment of use, never on a persistent settings screen. Shipped, as it stands today:
 
 **Preferences**
-- `Working hours per day` — number, default `8`
-- `Time zone` — select, default from `myself.timeZone`
-- `Cache duration (minutes)` — number, default `5`
+- `Working hours per day` — number, default `8`. Persisted in `chrome.storage.local` via `settings.js`, but not yet read by any rendering logic — see §5, it's reserved for the parked daily-hours comparison, not consumed today.
 
 **Data**
-- Button `Clear cache`
+- Button `Disconnect` — same action as the popup's Disconnect, clears the stored connection.
+
+Time zone is never a user-facing setting: the extension always uses the connected account's own `myself.timeZone` from Jira (see `jira-api.md` §1), never a stored preference or a hardcoded zone. Start Date field discovery and query caching are not implemented — see `CLAUDE.md` for what's out of scope.
 - Button `Disconnect` — clears `chrome.storage.session` immediately and clears cached query results; only enabled while connected. Nothing about the connection is ever written to disk, so there's nothing to clear there.
 
 A small status line at the top of the page reads `Connected as {displayName}` or `Not connected`, read-only — Options observes the connection, it doesn't create one.

@@ -127,9 +127,11 @@ const fields = [
 
 ---
 
-## 5. JQL builder
+## 5. JQL builders
 
-This is what's actually implemented — earlier drafts of this doc showed a `startFieldName`/`includeNoDueDate`-based version that was never built; Start Date narrowing is still just a future Phase 3 idea (§3), and the due-date toggle was removed entirely (see `plano-jira-timesheet-viewer.md` §11) in favour of always including no-due-date issues, with the status client-side filter handling narrowing instead.
+Two independent builders in `src/lib/jql.js`, one per search area. Start Date narrowing is not implemented in either (§3 describes the discovery mechanism for if it ever is).
+
+**My Items** — always includes issues with no due date (no toggle for this); narrowing beyond project happens through the status/type/work-item client-side filters instead.
 
 ```javascript
 // src/lib/jql.js
@@ -154,15 +156,27 @@ export function buildMyItemsJql({ from, to, projectKeys = [] }) {
 }
 ```
 
+**Timesheet** — finds issues with at least one worklog by the current user inside the range, independent of assignment or due date. `worklogDate` uses an exclusive upper bound (`< nextDay`) to cleanly include the whole end day.
+
+```javascript
+// src/lib/jql.js
+export function buildWorklogJql({ from, to }) {
+  const clauses = ['worklogAuthor = currentUser()'];
+  const nextDay = addDays(to, 1);
+  clauses.push(`worklogDate >= "${from}" AND worklogDate < "${nextDay}"`);
+  return `${clauses.join(' AND ')} ORDER BY updated DESC`;
+}
+```
+
 Dates are `YYYY-MM-DD` strings. `projectKeys` come from `GET_PROJECTS` results the user checked in the project filter popover — they're Jira project keys (alphanumeric, no user-typed free text), so simple double-quoting is safe here. Never build JQL from actual raw user text without escaping quotes and backslashes — that rule still applies the moment any free-text search box is added; date pickers, calendar clicks and checkbox-driven values (like `projectKeys`) are not that.
 
 ---
 
 ## 6. Worklog retrieval
 
-Called from `SEARCH` in `service-worker.js`, once per issue (via `mapWithLimit`, concurrency 5) — see `extension-arch.md` §3. This was cut from scope once and reinstated the same day at the user's request (`plano-jira-timesheet-viewer.md` §11 has the timeline); it's active code, not parked.
+Called from both `SEARCH` (My Items) and the Timesheet search in `service-worker.js`, once per issue (via `mapWithLimit`, concurrency 5) — see `extension-arch.md` §3.
 
-Use **v2** for worklogs. v3 returns `comment` as an ADF tree; v2 returns a plain string. The current code doesn't read `comment` at all (worklog descriptions are still out of scope — only `timeSpentSeconds` and `started` are used), but stay on v2 regardless: switching to v3 later for the comment would need an ADF flattener, so there's no reason to touch this today.
+Use **v2** for worklogs. v3 returns `comment` as an ADF tree; v2 returns a plain string, which the current code reads directly into `logsByDay[day].comments` — that's why v2, not v3.
 
 ```javascript
 // src/lib/jira-client.js

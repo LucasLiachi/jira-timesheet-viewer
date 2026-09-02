@@ -1,13 +1,13 @@
 ---
 name: jira-timesheet-viewer
-description: Builds and evolves "Jira Timesheet Viewer" — a read-only Manifest V3 Chrome/Edge extension that searches the user's assigned Jira issues in a date window, filterable by project (still narrows the JQL, though the button now sits below the calendar), by status, by issue type, and by a free-text work item search (key or summary, all three after project, client-side), and groups results by the day they were logged — one row per worklog, ordered chronologically across issues, including the worklog description, if any — plus a trailing list of issues with no worklog in the period, plus a button that opens a read-only summary of the day-grouped, logged-only results in a new tab. The connection can optionally persist encrypted across browser restarts if the user opts into "Stay connected on this device". Covers scaffolding, the Jira REST client (auth, nextPageToken pagination, 429 retry, per-issue worklog fetch, project listing), JQL builders, the popup + side panel UI (including the button+popover multi-select filter pattern, the plain-text work item filter, and the new-tab summary page), and the phased roadmap. Use this skill ALWAYS when the user mentions building, scaffolding, continuing, debugging or extending a Chrome/Edge extension that talks to Jira — including phrases like "plugin do Jira", "extensão do Jira", "timesheet extension", "worklog", "apontamento", "filtro de status", "filtro de projeto", "filtro de work item", "filtro de tipo", "resumo", "summary", "My Items", "fase 0/1/2 do plugin", "manifest v3 jira", "jira-client.js", or when they reference the Jira Timesheet Viewer plan. Also use when they ask to search/read due dates, statuses, estimates or worklogs from a browser extension, even if they never say the words "Chrome extension". Planning (planned vs. logged), a hours-vs-target progress bar, a collapsible accordion/tabs and CSV export are still out of scope by the user's own request — see the plan's §11 before adding those specifically.
+description: Builds and evolves "Jira Timesheet Viewer" v1.0.0 — a read-only Manifest V3 Chrome/Edge extension with two independent search areas. Timesheet searches by date range only and groups worklogs by day, one row per worklog ordered chronologically across issues. My Items searches by date range narrowed by a project filter in the JQL, plus client-side sub-filters for status, issue type, and a free-text work item search, also grouped by day, with a trailing list of issues with no worklog in the period. Both include the worklog description when present and a button that opens a read-only summary of the day-grouped, logged-only results in a new tab. The connection can optionally persist encrypted across browser restarts if the user opts into "Stay connected on this device". Covers scaffolding, the Jira REST client (auth, nextPageToken pagination, 429 retry, per-issue worklog fetch, project listing), JQL builders for both search areas, the popup + side panel UI (including the button+popover multi-select filter pattern, the plain-text work item filter, and the new-tab summary page). Use this skill ALWAYS when the user mentions building, debugging or extending a Chrome/Edge extension that talks to Jira — including phrases like "plugin do Jira", "extensão do Jira", "timesheet extension", "worklog", "apontamento", "filtro de status", "filtro de projeto", "filtro de work item", "filtro de tipo", "resumo", "summary", "My Items", "manifest v3 jira", "jira-client.js". Also use when they ask to search/read due dates, statuses, estimates or worklogs from a browser extension, even if they never say the words "Chrome extension". Planning (planned vs. logged), an hours-vs-target progress bar, a collapsible accordion/tabs and CSV export are permanently out of scope by the user's own request — don't add those without the user asking again.
 ---
 
 # Jira Timesheet Viewer
 
 Build a **read-only** MV3 browser extension that answers: **which issues are assigned to me inside a date window, what have I logged on each day, and what haven't I logged at all?**
 
-Nothing in this extension creates or edits Jira issues or worklogs — it only reads them. Clicking an issue opens its normal Jira page in a new tab, where the user logs time exactly as they always have; that's the only write path, and it happens entirely outside the extension. Scope history matters here: worklog reading was cut entirely at one point, then brought back at the user's request the same day — see `plano-jira-timesheet-viewer.md` §11 for the full timeline before assuming either direction is "obviously" what's wanted next.
+Nothing in this extension creates or edits Jira issues or worklogs — it only reads them. Clicking an issue opens its normal Jira page in a new tab, where the user logs time exactly as they always have; that's the only write path, and it happens entirely outside the extension.
 
 ---
 
@@ -17,9 +17,9 @@ These exist because breaking them causes real damage, not because they're stylis
 
 **Credentials never appear in source.** No API token, e-mail or account ID in any committed file, example, docstring or test fixture. If the user pastes a real token into the conversation, stop and tell them to revoke it at `id.atlassian.com → Security → API tokens` before continuing.
 
-**Corporate connection data never touches disk, by default.** Jira base URL, e-mail and API token are entered on screen and kept in `chrome.storage.session` — the browser's memory-only storage area, cleared when the browser fully closes, never written to disk unless the user opts in (see below). This was tightened even further once (nothing in `chrome.storage` at all, only a service-worker variable) and then deliberately relaxed back to `.session` on 2026-07-22: the stricter version meant reconnecting roughly every 30 seconds of idle time, because MV3 kills the service worker on that schedule and a plain variable dies with it. The user judged that friction not worth the marginal difference between "gone in ~30s" and "gone when the browser closes" — both never hit disk. Only non-connection preferences (workday hours) persist in `chrome.storage.local` unconditionally.
+**Corporate connection data never touches disk, by default.** Jira base URL, e-mail and API token are entered on screen and kept in `chrome.storage.session` — the browser's memory-only storage area, cleared when the browser fully closes, never written to disk unless the user opts in (see below). `.session` survives an MV3 service-worker restart (the worker gets killed after ~30s idle), while still never touching disk — that's the balance the extension is built around. Only non-connection preferences (workday hours) persist in `chrome.storage.local` unconditionally.
 
-**Second relaxation, 2026-07-24, opt-in only.** The user asked for a way to skip reconnecting across full browser restarts too, explicitly "encrypted" and "locked to this browser, non-transferable" rather than a plain removal of the rule. Implemented as an unchecked-by-default checkbox on the connect form, "Stay connected on this device": when checked, `CONNECT` encrypts the token (AES-GCM, `extractable: false` key held as a `CryptoKey` in the service worker's IndexedDB — `src/lib/secure-store.js`) and writes only the ciphertext to `chrome.storage.local` (`persistedConnection`); the plaintext token itself never touches `chrome.storage.local` or disk in any form. `DISCONNECT` deletes both the stored ciphertext and the IndexedDB key (crypto-erase). Be honest about the limit if asked: `extractable: false` stops the key from being exported via script, but doesn't defend against someone with filesystem access to the *whole* Chrome profile copied elsewhere — the protection is roughly equivalent to Chrome's own saved-password store, not unbreakable encryption. Don't re-loosen this further (e.g. make it default-on, or drop the encryption) without the user asking again — see `extension-arch.md` §5a for the full design.
+**Opt-in persisted connection.** An unchecked-by-default checkbox on the connect form, "Stay connected on this device": when checked, `CONNECT` encrypts the token (AES-GCM, `extractable: false` key held as a `CryptoKey` in the service worker's IndexedDB — `src/lib/secure-store.js`) and writes only the ciphertext to `chrome.storage.local` (`persistedConnection`); the plaintext token itself never touches `chrome.storage.local` or disk in any form. `DISCONNECT` deletes both the stored ciphertext and the IndexedDB key (crypto-erase). Be honest about the limit if asked: `extractable: false` stops the key from being exported via script, but doesn't defend against someone with filesystem access to the *whole* Chrome profile copied elsewhere — the protection is roughly equivalent to Chrome's own saved-password store, not unbreakable encryption. Don't re-loosen this further (e.g. make it default-on, or drop the encryption) without the user asking again — see `extension-arch.md` §5a for the full design.
 
 **The token never crosses into a page context.** Popup and side panel never hold the token themselves — they collect it on the connect form and hand it to the service worker in one message; the service worker is the only place that keeps it, and only for the current request/session. A page script that can read the token is one XSS away from leaking it.
 
@@ -38,41 +38,36 @@ jira-timesheet-viewer/
 │   ├── background/service-worker.js   # only place that holds credentials; owns CONNECT/SEARCH
 │   ├── lib/
 │   │   ├── jira-client.js             # fetch, auth, pagination, 429 retry, searchAll, mapWithLimit, fetchIssueWorklogs, fetchAllProjects
-│   │   ├── jql.js                     # JQL builder — assignee + optional project IN (...) + due-date-or-empty
-│   │   ├── fields.js                  # Start Date custom-field discovery (future — Phase 3)
+│   │   ├── jql.js                     # buildMyItemsJql (assignee + optional project IN (...) + due-date-or-empty) and buildWorklogJql (worklogAuthor + worklogDate range)
 │   │   ├── dates.js                   # ISO ↔ epoch ms, timezone-safe day bucketing, enumerateDates
 │   │   ├── messaging.js               # typed request/response wrapper
-│   │   ├── settings.js                # non-connection preferences only
+│   │   ├── settings.js                # workday hours preference only — not yet consumed by any view
 │   │   ├── connect-form.js            # shared Connect form, used by both popup and panel
 │   │   └── secure-store.js            # encrypt/decrypt for the opt-in persisted connection — non-extractable key in IndexedDB, service worker only
 │   ├── popup/                         # launcher: Connect form (if needed) + "Open My Items"
-│   ├── panel/                         # calendar.js (grid, week starts Sunday) + multi-select.js (project/status/type filter popover) + panel.js (state + day-grouped list ordered by worklog timestamp + work item text filter + summary handoff) — see ui-spec.md §3a
-│   ├── options/                       # workday hours, timezone, cache TTL — no credentials here
+│   ├── panel/                         # calendar.js (grid, week starts Sunday) + multi-select.js (project/status/type filter popover) + panel.js (Timesheet + My Items state, day-grouped lists, work item text filter, summary handoff) — see ui-spec.md §3a
+│   ├── options/                       # workday hours preference — no credentials here
 │   ├── summary/                       # summary.html/css/js — read-only day-grouped report opened in a new tab, fed via chrome.storage.session
 │   └── welcome/                       # onboarding page opened on install (chrome.runtime.onInstalled)
 └── icons/                             # 16, 32, 48, 128
 ```
 
-Run `python scripts/scaffold.py <target-dir>` to generate this tree with working stubs, then fill it in phase by phase. The scaffold is a starting point, not a finished product — expect to rewrite most of it. **The scaffold never writes `.gitignore`** — don't add it back to `FILES` in `scripts/scaffold.py`; it clobbered a real project's `.gitignore` once already (see that file's own comment).
+Run `python scripts/scaffold.py <target-dir>` to generate this tree with working stubs, then build it out feature by feature. The scaffold is a starting point, not a finished product — expect to rewrite most of it. **The scaffold never writes `.gitignore`** — don't add it back to `FILES` in `scripts/scaffold.py`; it clobbered a real project's `.gitignore` once already (see that file's own comment).
 
 ---
 
-## Phased roadmap
+## What's shipped (v1.0.0)
 
-Build in this order. Each phase ends with something the user can load and click, which is what keeps the feedback loop tight. Do not start a phase before the previous one is loadable in `chrome://extensions`.
+- **Connect form** (popup + side panel) — sends `CONNECT`, stores the connection in `chrome.storage.session` by default (never disk, unless "Stay connected on this device" is checked — see Non-negotiables and `extension-arch.md` §5a), prints `displayName` from `GET /rest/api/3/myself`.
+- **`jira-client.js`** — paginated `searchAll`, 429 retry with backoff, per-issue worklog fetch, project listing.
+- **Timesheet** — search by date range only, grouped by day, one row per worklog ordered chronologically across issues (not one block per issue), worklog description shown when present.
+- **My Items** — Sunday-first calendar range picker, project multi-select (narrows the JQL, sits below the calendar), status multi-select (client-side, post-search), issue type multi-select (client-side, post-status), work item text filter (client-side, matches key/summary), list grouped by day, trailing "not logged in this period" section.
+- **`Open summary in new tab`** — renders the same day grouping (logged items only, no empty days) on its own page (`src/summary/`), fed via a one-shot `chrome.storage.session` handoff, no new search. See `ui-spec.md` §3a/§3c.
+- Click-through to `/browse/{key}` is the only "action" the live list offers; the summary page isn't clickable.
 
-| Phase | Deliverable | Status |
-|---|---|---|
-| **0** | Scaffold + manifest + popup connect form | **Shipped** — Connect form sends `CONNECT`, stores the connection in `chrome.storage.session` (never `.local`, never disk), prints `displayName` from `GET /rest/api/3/myself` |
-| **1** | `jira-client.js` | **Shipped** — paginated `searchAll`, 429 retry |
-| **2** | My Items — project filter + search by date range + status filter + issue type filter + work item filter, grouped by day logged (worklogs ordered chronologically, crossing issues), plus a new-tab summary | **Shipped** — project multi-select (below the calendar, still narrows the JQL), Sunday-first calendar range picker, status multi-select (post-search client-side), issue type multi-select (post-status, same client-side pattern), work item text filter (post-type, matches key/summary), list grouped by day with **one row per worklog** ordered by its own timestamp across every issue (not one row per issue), trailing "not logged" section, and an `Open summary in new tab` button that renders the same day grouping (logged items only) on its own page via `src/summary/`, see `ui-spec.md` §3a/§3c. Click-through to `/browse/{key}` is the only "action" this tool offers on the live list; the summary page itself isn't clickable. Optionally, the connection itself can now survive a full browser restart if the user opts into "Stay connected on this device" — see Non-negotiables above and `extension-arch.md` §5a |
-| **3** | Start Date discovery | Not started, optional — `fields.js` is a stub |
-| **4** | Cache in `chrome.storage.local` with TTL | Not started — more valuable now that `SEARCH` makes one worklog request per issue |
-| **5** | Polish | Partial — dark mode via `prefers-color-scheme` is already in `panel.css`; store-listing assets (icons, privacy policy) still needed before publishing |
+Not implemented, and not planned unless the user asks again: Start Date discovery, query caching, Planning (planned vs. logged), an hours-vs-target progress bar, a collapsible accordion/tabs, CSV export. See `CLAUDE.md` → "O que está fora de escopo".
 
-This is the full roadmap for the current scope. **Still parked**, per `plano-jira-timesheet-viewer.md` §11: Planning (planned vs. logged), an hours-vs-target progress bar, a collapsible accordion, tabs, and CSV export. These are not "later phases" of this list — don't build toward them without the user asking again. Worklog *reading* and its description, and the project/status filters, are no longer parked (see Phase 2) — worklog reading specifically was cut once and reinstated the same day; check §11's timeline before assuming which direction is current. The new-tab summary (also Phase 2) is a separate, much smaller thing than parked CSV export: it's an HTML report of what's already in memory, not a downloadable file, and it was asked for explicitly — don't conflate the two or treat the summary as implicitly unlocking CSV export too.
-
-When the user says "continue" or names a phase, check what already exists on disk before writing anything — resuming mid-phase is the common case, and regenerating files silently discards their edits.
+When resuming work, check what already exists on disk before writing anything — regenerating files silently discards edits.
 
 ---
 
@@ -98,11 +93,11 @@ These come up on nearly every build. Handling them upfront saves a debugging ses
 
 **Timezone drift.** Worklog `started` carries an offset. Bucketing by day with `new Date(started).toISOString().slice(0,10)` shifts evening entries into the next day. `service-worker.js` uses `isoDateInTimeZone` (from `dates.js`, using the connected account's `timeZone`, not a hardcoded one) to build `logsByDay` — nothing else should slice ISO strings by hand, for worklog dates or `due` dates.
 
-**Start Date is not a native field.** It's a custom field whose ID varies per Jira instance. If Phase 3 happens: discover it at runtime by matching on name and `schema.type === 'date'`, cache the ID, and let Options override it. Hardcoding `customfield_10015` works on one instance and silently breaks on the next.
+**Start Date is not a native field.** It's a custom field whose ID varies per Jira instance. Not implemented today (out of scope, see `CLAUDE.md`) — if it's ever built, discover it at runtime by matching on name and `schema.type === 'date'`, cache the ID, and let Options override it. Hardcoding `customfield_10015` works on one instance and silently breaks on the next.
 
 **The service worker dies.** MV3 terminates it after roughly 30 seconds idle. A long multi-page query answered through a single `sendMessage` round trip will drop. Use a long-lived `chrome.runtime.connect` port and stream progress. The connection itself survives this (it's reloaded from `chrome.storage.session` on the next message — see Non-negotiables); this trap is now only about in-flight requests and any *other* module-level state you might be tempted to add.
 
-**`duedate IS EMPTY` is common.** Many issues have no due date. `buildMyItemsJql` always includes them (`OR duedate IS EMPTY`) — there is no toggle for this anymore (there was, once; it was replaced by the status filter, see `plano-jira-timesheet-viewer.md` §11). Don't bring back a checkbox for it without checking first.
+**`duedate IS EMPTY` is common.** Many issues have no due date. `buildMyItemsJql` always includes them (`OR duedate IS EMPTY`) — there is no toggle for this; narrowing happens through the status/type/work-item filters instead. Don't bring back a checkbox for it without the user asking first.
 
 **Cloud and Data Center differ.** `POST /rest/api/3/search/jql` doesn't exist on Server/Data Center. Detect deployment with `GET /rest/api/3/serverInfo` and fall back to `/rest/api/2/search` with `startAt` pagination.
 
@@ -118,7 +113,7 @@ These come up on nearly every build. Handling them upfront saves a debugging ses
 
 ## Verification
 
-Before telling the user a phase is done, confirm it actually loads:
+Before telling the user a change is done, confirm it actually loads:
 
 ```bash
 # no syntax errors across the source tree

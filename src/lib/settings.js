@@ -1,13 +1,10 @@
 // Preferences only. Corporate connection data (base URL, e-mail, API token)
 // is never stored here — it lives in-memory in the service worker only.
 // See src/background/service-worker.js.
-const KEYS = ['workdayHours', 'timeZone', 'cacheMinutes', 'startDateFieldId'];
+const KEYS = ['workdayHours'];
 
 const DEFAULTS = {
   workdayHours: 8,
-  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  cacheMinutes: 5,
-  startDateFieldId: null,
 };
 
 export async function getSettings() {

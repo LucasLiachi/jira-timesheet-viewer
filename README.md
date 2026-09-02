@@ -2,7 +2,7 @@
 
 Extensão de navegador (Chrome/Edge, Manifest V3) de **pesquisa e visualização**: mostra rapidamente quais issues do Jira estão sob sua responsabilidade num período, agrupadas pelo dia em que você apontou horas nelas. Ela **lê** apontamentos (worklogs) — não cria nem edita nenhum. Para lançar horas, clique na issue e faça isso na tela normal do Jira, como sempre.
 
-Nada aqui cria, edita ou apaga issues ou worklogs no Jira. Detalhes de arquitetura e decisões de projeto estão em [CLAUDE.md](CLAUDE.md) e no plano completo em [.claude/plano-jira-timesheet-viewer.md](.claude/plano-jira-timesheet-viewer.md) (seção 11 tem a linha do tempo de escopo e o que ainda fica de fora).
+Nada aqui cria, edita ou apaga issues ou worklogs no Jira. Detalhes de arquitetura e decisões de projeto estão em [CLAUDE.md](CLAUDE.md).
 
 ## O que ela faz
 
@@ -90,7 +90,7 @@ Gera `dist/jira-timesheet-viewer-v{versão}.zip` com exatamente o que o Chrome c
 
 ## Estado do projeto
 
-Escopo de pesquisa/visualização com leitura de worklogs implementado: conexão guardada em `chrome.storage.session` (memória do navegador, nunca disco), calendário de período, separação das seções em **Timesheet** (busca baseada estritamente em datas, exibindo apontamentos) e **My Items** (busca baseada em datas e projetos, com filtros locais/client-side de status, tipo e texto livre para os seus itens), cada uma com seu próprio botão de busca. Há lista agrupada por dia de apontamento (com descrição do worklog), clique para abrir no Jira, e um botão de resumo somente-leitura numa aba nova. Deliberadamente **ainda não inclui** comparação planejado vs. logado, barra de progresso vs. meta de horas, acordeão/abas ou export CSV — isso foi cortado do escopo a pedido do usuário (ver plano, seção 11), não é um "ainda não chegou lá". O roadmap do que falta (opcional: Start Date, cache) está em [.claude/plano-jira-timesheet-viewer.md](.claude/plano-jira-timesheet-viewer.md).
+Conexão guardada em `chrome.storage.session` (memória do navegador, nunca disco, salvo se o usuário optar por persistência criptografada), calendário de período, separação das seções em **Timesheet** (busca baseada estritamente em datas, exibindo apontamentos) e **My Items** (busca baseada em datas e projetos, com filtros locais/client-side de status, tipo e texto livre para os seus itens), cada uma com seu próprio botão de busca. Há lista agrupada por dia de apontamento (com descrição do worklog), clique para abrir no Jira, e um botão de resumo somente-leitura numa aba nova. Deliberadamente **não inclui** comparação planejado vs. logado, barra de progresso vs. meta de horas, acordeão/abas ou export CSV — ver [CLAUDE.md](CLAUDE.md) para o que está fora de escopo.
 
 ## Licença
 

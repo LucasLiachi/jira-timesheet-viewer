@@ -1,81 +1,76 @@
 # Jira Timesheet Viewer
 
-Extensão de navegador (Chrome/Edge, Manifest V3) de **pesquisa e visualização**: dado um período (data início/fim), mostra quais issues do Jira estão atribuídas a você nesse período, agrupadas por dia de apontamento — o que foi logado em cada dia, e ao final, o que não foi logado no período todo.
+Extensão de navegador (Chrome/Edge, Manifest V3) de **pesquisa e visualização, versão 1.0.0**: dado um período (data início/fim), mostra quais issues do Jira estão atribuídas a você nesse período e o que você logou em cada dia, sem nunca criar ou editar nada no Jira.
 
-Não é uma ferramenta de **criação** de apontamento — ela lê worklogs, não cria (inclusive a descrição do worklog, quando existe). Cada issue da lista é clicável e abre a tela normal do Jira (`/browse/{key}`), onde o usuário loga horas exatamente como sempre fez. A busca de apontamentos (Timesheet) é conduzida estritamente pelas datas selecionadas e sempre traz tudo que é do usuário no período. Os filtros são divididos visualmente e funcionalmente em duas lógicas independentes, cada uma com seu próprio botão de busca: **Timesheet** (busca baseada apenas em data, para listar apontamentos) e **My Items** (busca baseada em data e restrita por filtros de Projetos na API, além de sub-filtros client-side de Status, Tipo do Item e texto). Dentro de cada dia agrupado no Timesheet, os worklogs aparecem ordenados por horário (`started`), cruzando itens diferentes — não agrupados por issue. Depois de todos os filtros, um botão **`Open summary in new tab`** abre uma página própria da extensão (sem nova busca) com um resumo somente-leitura do que está agrupado por dia na tela, pulando dias/itens sem apontamento. Ver [.claude/plano-jira-timesheet-viewer.md](.claude/plano-jira-timesheet-viewer.md) §11 para o histórico de escopo (foi cortado, depois parcialmente retomado, tudo a pedido do usuário) e o que ainda fica de fora (Planning, barra de progresso vs. meta, acordeão/abas, CSV).
+Não é uma ferramenta de **criação** de apontamento — ela só lê worklogs, inclusive a descrição, quando existe. Cada issue da lista é clicável e abre a tela normal do Jira (`/browse/{key}`), onde o usuário loga horas exatamente como sempre fez; esse clique é o único "mecanismo de apontamento" que a extensão oferece.
 
-Nada aqui cria, edita ou apaga issues no Jira. O plano de desenvolvimento completo está em [.claude/plano-jira-timesheet-viewer.md](.claude/plano-jira-timesheet-viewer.md). Para testar localmente ou empacotar para a Chrome Web Store, ver [README.md](README.md).
+A interface tem duas áreas de busca independentes, cada uma com seu próprio botão:
 
-## Estado atual
+- **Timesheet** — busca baseada só em datas, sempre traz todos os worklogs do usuário no período. Dentro de cada dia, os worklogs aparecem ordenados por horário (`started`), cruzando issues diferentes — não agrupados por issue.
+- **My Items** — busca baseada em data, restrita por um filtro de Projetos na própria consulta ao Jira, mais sub-filtros client-side (sem nova chamada de rede) de Status, Tipo do Item e um campo de texto livre.
 
-Escopo de pesquisa/visualização com leitura de worklogs implementado (Fases 0–2 do plano, mais 4 melhorias pontuais pedidas depois): conexão via popup guardada em `chrome.storage.session` por padrão (memória do navegador, nunca disco — dura até o navegador fechar) e, opcionalmente, se o usuário marcar "Stay connected on this device" no formulário, também persistida entre reinícios do navegador com o token cifrado (ver non-negotiable abaixo e `references/extension-arch.md`); calendário no side panel, semana começando no domingo, para escolher um período; áreas de interface separadas com botões independentes: **Timesheet** (afetado apenas pelas datas) e **My Items** (afetado pelas datas, restrito por Projetos na JQL, e com filtros client-side adicionais de Status, Tipo e Busca); e lista **agrupada por dia** — dentro de cada dia, um worklog por linha, ordenados por horário e cruzando issues diferentes (não mais um bloco por issue), com as horas e a descrição daquele worklog (se houver); dias sem apontamento aparecem explicitamente, e ao final uma seção com tudo que não tem apontamento nenhum no período. Clique na issue abre no Jira, reaproveitando a mesma aba. Depois de todos os filtros, o botão `Open summary in new tab` abre `src/summary/summary.html` numa aba nova (via `chrome.storage.session` como entrega único-uso, sem nova busca) com o mesmo agrupamento por dia, mas só os dias/itens com apontamento de verdade. Fase 3 (Start Date) e Fase 4 (cache) são opcionais e não foram feitas; Fase 5 (polish/store assets) está parcial. Instruções de teste local e empacotamento estão no [README.md](README.md).
+Depois de qualquer busca, o botão **`Open summary in new tab`** abre uma página própria da extensão com um resumo somente-leitura do que está agrupado por dia na tela, pulando dias e itens sem apontamento — sem refazer a busca.
 
-**Ainda fora de escopo**: comparação planejado vs. logado (Planning), barra de progresso por dia vs. meta de horas, acordeão colapsável/abas, CSV export. Isso foi cortado uma vez a pedido do usuário e continua fora — não reintroduzir sem pedirem de novo. Ver `plano-jira-timesheet-viewer.md` §11 para a linha do tempo completa de decisões de escopo, todas a pedido explícito do usuário.
+Para testar localmente ou empacotar, ver [README.md](README.md).
 
-Antes de gerar ou reescrever qualquer arquivo, rode `git status` / olhe o disco para confirmar o que já existe: retomar uma fase no meio é o caso comum, e regenerar arquivos por cima descarta edição do usuário silenciosamente. **Cuidado especial com `scripts/scaffold.py --force`** — ele já sobrescreveu o `.gitignore` real deste projeto uma vez (corrigido; ver comentário no próprio script). Rodar o scaffold de novo num diretório não-vazio deve ser conferido arquivo a arquivo, não assumido como seguro.
+## O que está fora de escopo
 
-## Skill do projeto
+Deliberadamente, não a esta altura: comparação planejado vs. logado (Planning), barra de progresso por dia vs. meta de horas, acordeão colapsável/abas, export CSV, descoberta automática de campo "Start Date", e cache de busca. Nenhuma dessas é uma fase futura planejada — são simplesmente não-objetivos do produto hoje. Não implementar nenhuma delas sem o usuário pedir explicitamente.
 
-A skill **`jira-timesheet-viewer`** (`.claude/skills/jira-timesheet-viewer/`) é a fonte de verdade técnica e é carregada automaticamente pelo Claude Code quando o pedido for sobre construir, retomar, debugar ou estender esta extensão. Ela contém o que este arquivo não repete:
+Antes de gerar ou reescrever qualquer arquivo, rode `git status` / olhe o disco para confirmar o que já existe — regenerar arquivos por cima descarta edição do usuário silenciosamente. **Cuidado especial com `scripts/scaffold.py --force`**, que sobrescreve `.gitignore` se rodado num diretório não-vazio sem conferência arquivo a arquivo.
 
-| Arquivo | Cobre |
+## Skills do projeto
+
+Duas skills, com responsabilidades separadas — implementar não é a mesma etapa que publicar.
+
+| Skill | Responsabilidade |
 |---|---|
-| `SKILL.md` | Non-negotiables, layout de pastas, roadmap por fases, método de trabalho, armadilhas conhecidas |
-| `references/jira-api.md` | Auth, paginação `nextPageToken`, JQL, worklogs, ADF, rate limit, Cloud vs Data Center |
-| `references/extension-arch.md` | Ciclo de vida do service worker MV3, protocolo de mensagens, `chrome.storage`, side panel, CSP |
-| `references/ui-spec.md` | Layout do popup/side panel, strings finais em inglês, formatação de horas/datas |
-| `scripts/scaffold.py` | Gera o esqueleto inicial (`python scripts/scaffold.py <target-dir>`) |
+| **`jira-timesheet-viewer`** (`.claude/skills/jira-timesheet-viewer/`) | Fonte de verdade técnica da extensão em si: non-negotiables, layout de pastas, método de trabalho, armadilhas conhecidas. Carregada automaticamente para qualquer pedido de construir, debugar ou estender a extensão. |
+| **`ship-release`** (`.claude/skills/ship-release/`) | Entrega no GitHub depois que uma mudança já foi implementada e verificada: bump de versão, entrada no changelog publicado no Pages e, só após confirmação explícita do usuário, push + tag disparando o release automático. |
 
-**Leia a referência antes de escrever o código que ela cobre.** Não duplique esse conteúdo aqui — se este arquivo e a skill divergirem algum dia, a skill vence em detalhe técnico; este arquivo vence em regras de projeto e de publicação.
+| Referência técnica | Cobre |
+|---|---|
+| `jira-timesheet-viewer/references/jira-api.md` | Auth, paginação `nextPageToken`, JQL (Timesheet e My Items), worklogs, rate limit, Cloud vs Data Center |
+| `jira-timesheet-viewer/references/extension-arch.md` | Ciclo de vida do service worker MV3, protocolo de mensagens, `chrome.storage`, side panel, CSP |
+| `jira-timesheet-viewer/references/ui-spec.md` | Layout do popup/side panel, strings finais em inglês, formatação de horas/datas |
+| `jira-timesheet-viewer/scripts/scaffold.py` | Gera o esqueleto inicial (`python scripts/scaffold.py <target-dir>`) |
+
+**Leia a referência antes de escrever o código que ela cobre.** Não duplique esse conteúdo aqui — se este arquivo e uma skill divergirem algum dia, a skill vence em detalhe técnico; este arquivo vence em regras de projeto e de publicação.
 
 ## Non-negotiables (resumo — detalhe completo na skill)
 
 - **Credencial nunca em texto no repositório.** Token, e-mail ou `accountId` reais não podem aparecer em código, exemplo, commit ou fixture.
-- **Dado de conexão corporativa, por padrão, nunca vai para disco.** URL do Jira, e-mail e API token são digitados na tela num formulário de conexão (popup, e side panel se aberto sem conexão ativa) e ficam em `chrome.storage.session` — memória do navegador, nunca disco, a menos que o usuário opte explicitamente pela exceção abaixo. **Mudança deliberada em 2026-07-22:** a regra original era "nunca persiste em lugar nenhum" (nem `chrome.storage.session`); foi relaxada a pedido do usuário porque o service worker do MV3 morre a cada ~30s ocioso, e como a conexão vivia só numa variável em memória, isso forçava reconectar o tempo todo — fricção grande demais para o ganho de segurança. `chrome.storage.session` resolve isso (sobrevive ao worker reiniciar) mantendo a garantia que importava (nunca toca disco; some ao fechar o navegador). Só preferências não-sensíveis (horas de trabalho) persistem em `chrome.storage.local` sem essa ressalva.
-  **Segunda mudança deliberada em 2026-07-24:** o usuário pediu, explicitamente, uma forma de manter a conexão entre reinícios do navegador sem digitar credenciais de novo, mas "criptografada" e "presa a este navegador, intransferível" — não a remoção lisa do non-negotiable. A opção implementada: checkbox **opt-in**, desmarcado por padrão, "Stay connected on this device" no formulário de conexão. Quando marcado, o token é cifrado (AES-GCM, chave gerada com `extractable:false` guardada como `CryptoKey` no IndexedDB do service worker — `src/lib/secure-store.js`) e só o ciphertext vai para `chrome.storage.local` (`persistedConnection`); o token em texto puro nunca é escrito em disco. `DISCONNECT` apaga tanto essa entrada quanto o IndexedDB inteiro (crypto-erase). **Limite honesto, não esconder do usuário se perguntado:** `extractable:false` impede exportar a chave via JS (não dá pra copiar só ela para outro perfil/máquina e usar por código) — mas não é resistente a alguém com acesso de sistema-de-arquivos à pasta *inteira* do profile do Chrome copiada para outra máquina (IndexedDB + `storage.local` juntos ainda permitiriam, em tese, automatizar o próprio Chrome contra essa cópia). Na prática, o nível de proteção é equivalente ao do gerenciador de senhas nativo do Chrome — não é uma garantia mais forte que isso. Se o usuário pedir para reverter, é só voltar a persistir só em `chrome.storage.session` — ver histórico de `service-worker.js`/`connect-form.js`/`secure-store.js`.
+- **Dado de conexão corporativa, por padrão, nunca vai para disco.** URL do Jira, e-mail e API token são digitados na tela num formulário de conexão (popup, e side panel se aberto sem conexão ativa) e ficam em `chrome.storage.session` — memória do navegador, sobrevive ao service worker reiniciar (MV3 mata o worker a cada ~30s ocioso), mas some ao fechar o navegador. Nunca disco, a menos que o usuário opte explicitamente pela exceção abaixo.
+- **Exceção opt-in: persistência criptografada entre reinícios do navegador.** Checkbox desmarcado por padrão, "Stay connected on this device", no formulário de conexão. Quando marcado, o token é cifrado (AES-GCM, chave `extractable:false` guardada como `CryptoKey` no IndexedDB do service worker — `src/lib/secure-store.js`) e só o ciphertext vai para `chrome.storage.local` (`persistedConnection`); o token em texto puro nunca toca disco. `DISCONNECT` apaga tanto essa entrada quanto o IndexedDB inteiro (crypto-erase). **Limite honesto, não esconder se perguntado:** protege contra leitura via JS de outro contexto, mas não contra alguém com acesso de sistema-de-arquivos à pasta inteira do profile do Chrome copiada para outra máquina — nível equivalente ao gerenciador de senhas nativo do Chrome, não uma garantia mais forte que isso. Não adicionar um terceiro mecanismo de persistência, nem ligar este por padrão, sem checar com o usuário de novo.
 - **O token nunca chega a um page context.** Popup e panel capturam a credencial só no formulário de conexão e a repassam uma vez ao service worker via `chrome.runtime` messaging; nenhuma outra tela a retém.
-- **Fricção adicional de reconectar tem dois caminhos sancionados, nessa ordem de preferência.** Primeiro, fora da extensão: o usuário guarda a credencial no próprio gerenciador de senhas (nativo ou de terceiros) e cola quando pedido — documentado em README.md "Usando um gerenciador de senhas" e no card de dica em `src/welcome/welcome.html`; os campos do formulário já têm `autocomplete="username"`/`"current-password"` para isso. Segundo, dentro da extensão, só se o usuário marcar "Stay connected on this device": persistência cifrada opt-in, ver o non-negotiable de conexão acima. Não adicionar um terceiro mecanismo de persistência (ex: ligar isso por padrão, ou guardar em texto puro) sem checar com o usuário de novo.
-- **Todo texto de UI é em inglês** — botões, labels, estados vazios, erros, cabeçalhos de CSV. A conversa com o usuário é em português; o artefato não.
+- **Todo texto de UI é em inglês** — botões, labels, estados vazios, erros. A conversa com o usuário é em português; o artefato não.
 - **Somente leitura.** Só `GET` e o `POST /rest/api/3/search/jql` de consulta. Qualquer `POST/PUT/DELETE` que altere dados no Jira está fora de escopo, a menos que explicitamente pedido — e mesmo assim exige uma confirmação própria na UI.
 
 ## Stack
 
 Vanilla JS (ES Modules) + HTML/CSS puro, sem build step. `chrome://extensions → Load unpacked` deve funcionar direto. Só migrar para Vite + React se o usuário pedir explicitamente ou a UI genuinamente exigir — e avisar antes de fazer, nunca decidir isso sozinho.
 
-## Estrutura de pastas alvo
+## Estrutura de pastas
 
 ```
 jira-timesheet-viewer/
 ├── manifest.json
 ├── src/
 │   ├── background/service-worker.js   # único lugar com credenciais; CONNECT/SEARCH/GET_PROJECTS/DISCONNECT
-│   ├── lib/                           # jira-client, jql, fields (stub), dates, messaging, settings, connect-form, secure-store (cripto do token persistido, opt-in)
+│   ├── lib/                           # jira-client, jql (Timesheet + My Items), dates, messaging, settings, connect-form, secure-store
 │   ├── popup/                         # formulário de conexão + "Open My Items" (abre o side panel)
-│   ├── panel/                         # calendar.js (grade, semana começa domingo) + multi-select.js (filtros de projeto/status/tipo) + panel.js (estado + lista + filtro de work item por texto + resumo)
-│   ├── options/                       # só preferências — sem campos de credencial
+│   ├── panel/                         # calendar.js + multi-select.js (filtros de projeto/status/tipo) + panel.js (Timesheet + My Items + resumo)
+│   ├── options/                       # só preferências (horas de trabalho) — sem campos de credencial
 │   ├── summary/                       # summary.html/css/js — resumo somente-leitura aberto numa aba nova
 │   └── welcome/                       # página de instruções, aberta em chrome.runtime.onInstalled
-├── icons/                             # 16, 32, 48, 128 (placeholders gerados por scripts/make_icons.py)
+├── icons/                             # 16, 32, 48, 128
+├── docs/                              # GitHub Pages: privacy policy + histórico de versões (changelog.html)
+├── .github/workflows/release.yml      # tag vX.Y.Z → build do zip → GitHub Release
 ├── scripts/                           # make_icons.py, package_extension.py (dev-only, fora do pacote publicado)
-└── .claude/
-    ├── plano-jira-timesheet-viewer.md
-    └── skills/jira-timesheet-viewer/
+└── .claude/skills/                    # jira-timesheet-viewer (implementação) + ship-release (entrega)
 ```
 
-## Roadmap por fases
-
-| Fase | Entrega | Status |
-|---|---|---|
-| 0 | Scaffold + manifest + formulário de conexão no popup | **Feito** |
-| 1 | `jira-client.js` (auth, paginação, retry 429) | **Feito** |
-| 2 | My Items — calendário + filtro de projetos + filtro de status + filtro de work item (texto) + lista agrupada por dia (com descrição do worklog) + não-logados + clique abre no Jira + resumo em nova aba | **Feito** — este é o escopo inteiro da extensão hoje |
-| 3 | Start Date discovery (customfield) | Não iniciado, opcional |
-| 4 | Cache em `chrome.storage.local` com TTL | Não iniciado — mais valioso agora, já que `SEARCH` faz uma chamada de worklog por issue |
-| 5 | Polish (ícones finais, privacy policy, screenshot) | Parcial — dark mode via `prefers-color-scheme` já existe |
-
-Planning (planejado vs. logado), barra de progresso vs. meta de horas, acordeão/abas e CSV export **não são fases futuras desta lista** — continuam fora de escopo a pedido do usuário, documentado em `plano-jira-timesheet-viewer.md` §11. Não reintroduzir sem pedirem de novo.
-
-## Verificação antes de reportar uma fase como pronta
+## Verificação antes de reportar uma mudança como pronta
 
 ```bash
 find src -name '*.js' -exec node --check {} \;                 # sem erro de sintaxe
@@ -83,23 +78,48 @@ python -c "import json;m=json.load(open('manifest.json'));print(m['manifest_vers
 grep -rniE 'ATATT|api[_-]?token\s*[:=]\s*["'\''][^"'\'']{12,}' src manifest.json || echo "clean"
 ```
 
-Depois, pedir para o usuário carregar como unpacked e exercitar a única coisa que a fase adicionou. Reportar o que foi verificado mecanicamente versus o que ainda depende dos olhos do usuário.
+Depois, pedir para o usuário carregar como unpacked e exercitar o que foi adicionado ou mudado. Reportar o que foi verificado mecanicamente versus o que ainda depende dos olhos do usuário.
+
+## Fluxo de trabalho e entrega (release)
+
+Todo trabalho segue três etapas, cada uma com dono claro:
+
+1. **Usuário explica o que espera** — em português, na conversa.
+2. **Implementação** — feita pela skill `jira-timesheet-viewer`: código, verificação mecânica (sintaxe, manifest, grep de credencial), e pedido para o usuário testar como unpacked.
+3. **Entrega no GitHub** — feita pela skill `ship-release`, só depois que (2) está pronto e o usuário pede para publicar: bump de versão, entrada nova em `docs/changelog.html`, commit, confirmação explícita do usuário, e só então push + tag na `main`.
+
+O pipeline técnico da etapa 3:
+
+```
+push da tag vX.Y.Z
+        │
+        ▼
+.github/workflows/release.yml dispara
+        │
+        ├─ checkout do repo
+        ├─ python scripts/package_extension.py   (mesmo script usado pro Chrome Web Store)
+        │  → gera dist/jira-timesheet-viewer-vX.Y.Z.zip
+        └─ publica GitHub Release da tag, com o zip anexado e release notes automáticas
+```
+
+`docs/changelog.html` é publicado pelo GitHub Pages diretamente da pasta `docs/` na `main` — mesmo mecanismo que já serve `docs/index.html` (a privacy policy); não existe um segundo workflow para isso. A página **não** é gerada pela Action — é escrita à mão pela skill `ship-release`, com bullets legíveis por humano, antes do push.
+
+**Push na `main` e push de tag sempre exigem confirmação explícita do usuário antes de rodar.** São ações públicas e difíceis de reverter — a tag dispara a Action imediatamente e publica um artefato real, baixável por qualquer pessoa. O usuário autorizou o formato deste fluxo ao pedir a skill, mas isso não substitui confirmar cada execução específica — ver `ship-release/SKILL.md`.
 
 ## Responsabilidades para publicar na Chrome Web Store
 
 Isto é sobre o processo de **submissão/loja**, que a skill não cobre (ela cobre a extensão em si). Regras vigentes da Chrome Web Store Developer Program Policy:
 
 - **Single purpose.** A extensão deve ter um propósito único e estreito ("buscar e ver issues do Jira atribuídas ao usuário, por período, com o que já foi apontado"). Não empacotar funcionalidade não relacionada — se algo for genuinamente separado, vira outra extensão.
-- **Permissões mínimas + justificativa.** Pedir só `storage`, `sidePanel` e `host_permissions` para `https://*.atlassian.net/*` (ou origem específica de Data Center). `alarms` só volta ao manifest quando algum código realmente chamar `chrome.alarms` (ver roadmap). Evitar `<all_urls>` — permissão ampla é motivo de rejeição na revisão. No Developer Dashboard, cada permissão precisa de um campo de justificativa textual explicando por que é necessária, incluindo `storage` — que agora guarda preferências, a conexão em `chrome.storage.session`, e a entrega único-uso do resumo para a aba de `src/summary/`.
-- **Sem código remoto.** Manifest V3 proíbe carregar lógica executável de fora do pacote (`eval`, scripts de CDN, lógica remota). Todo o JS precisa estar no pacote submetido e ser "facilmente discernível" a partir do código enviado. Buscar dados remotos (a própria API do Jira) é permitido; buscar e executar *código* remoto não.
+- **Permissões mínimas + justificativa.** Pedir só `storage`, `sidePanel` e `host_permissions` para `https://*.atlassian.net/*` (ou origem específica de Data Center). `alarms` só entra no manifest quando algum código realmente chamar `chrome.alarms`. Evitar `<all_urls>` — permissão ampla é motivo de rejeição na revisão. No Developer Dashboard, cada permissão precisa de um campo de justificativa textual explicando por que é necessária, incluindo `storage` — que guarda preferências, a conexão em `chrome.storage.session`, e a entrega único-uso do resumo para `src/summary/`.
+- **Sem código remoto.** Manifest V3 proíbe carregar lógica executável de fora do pacote (`eval`, scripts de CDN, lógica remota). Todo o JS precisa estar no pacote submetido. Buscar dados remotos (a própria API do Jira) é permitido; buscar e executar *código* remoto não.
 - **CSP sem inline scripts.** Nenhum `<script>` inline, nenhum `onclick=` no HTML — já é a convenção adotada pela skill.
-- **Política de privacidade obrigatória.** Como a extensão manuseia dados do usuário (e-mail, token, dados do Jira), é exigida uma privacy policy pública, com URL persistente acessível sem login, data de vigência e e-mail de contato válido, descrevendo que categorias de dado são coletadas, por quê, com quem são compartilhadas e como o usuário pode pedir acesso/exclusão. **A partir de 1º de agosto de 2026 o Google passa a fiscalizar essa regra com mais rigor** — vale preparar a privacy policy antes de publicar, não deixar para a submissão final.
+- **Política de privacidade obrigatória.** Como a extensão manuseia dados do usuário (e-mail, token, dados do Jira), é exigida uma privacy policy pública, com URL persistente acessível sem login, data de vigência e e-mail de contato válido — já publicada em `docs/index.html`.
 - **Uso de dados limitado ao propósito divulgado.** Nada de repassar dados do usuário para anúncios ou data brokers — nem que seja hipotético, isso barra a extensão na revisão.
-- **Assets da ficha da loja.** Ícones 16/48/128 (e idealmente 32), pelo menos uma screenshot (1280×800 ou 640×400), descrição detalhada, categoria e e-mail de suporte — planejar isso na Fase 5 (Polish).
+- **Assets da ficha da loja.** Ícones 16/48/128/32, screenshot (1280×800 ou 640×400), descrição detalhada, categoria e e-mail de suporte — ver `store-assets/`.
 
 Sources: [Chrome Web Store policy updates 2026](https://developer.chrome.com/blog/cws-policy-updates-2026) · [Developer Program Policies](https://developer.chrome.com/docs/webstore/program-policies/policies) · [Privacy Policies requirements](https://developer.chrome.com/docs/webstore/program-policies/privacy)
 
 ## Comunicação
 
 O usuário trabalha em português — explicações, resumos e perguntas em português. Código, comentários, mensagens de commit, nomes de arquivo e toda string de UI ficam em inglês. Quando houver um trade-off real (Basic Auth vs OAuth, popup vs side panel, vanilla vs framework), apresentar a troca e deixar o usuário escolher em vez de decidir silenciosamente.
-
