@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jira Timesheet Viewer — Version History</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1b1f24;
+    --muted: #57606a;
+    --accent: #0052cc;
+    --border: #d7dce1;
+    --card: #f6f8fa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --muted: #9aa5b1;
+      --accent: #4c9aff;
+      --border: #2d333b;
+      --card: #161b22;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+  h1 {
+    font-size: 1.6rem;
+    margin-bottom: 4px;
+  }
+  .meta {
+    color: var(--muted);
+    font-size: 0.92rem;
+    margin-bottom: 32px;
+  }
+  .release {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 20px 0;
+  }
+  .release h2 {
+    font-size: 1.05rem;
+    margin: 0 0 4px;
+  }
+  .release .date {
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin-bottom: 10px;
+  }
+  .release ul {
+    padding-left: 1.2em;
+    margin: 10px 0;
+  }
+  .release li {
+    margin-bottom: 0.35em;
+  }
+  a { color: var(--accent); }
+  .download {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 0.92rem;
+  }
+  footer {
+    margin-top: 3em;
+    padding-top: 1em;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Jira Timesheet Viewer — Version History</h1>
+  <p class="meta">Each entry links to the packaged <code>.zip</code> for that version, built and attached automatically by <a href="https://github.com/LucasLiachi/jira-timesheet-viewer/actions/workflows/release.yml">GitHub Actions</a> when the version is tagged. To install manually: download the zip, extract it, then <code>chrome://extensions → Load unpacked</code>.</p>
+
+  <!-- ship-release skill: newest entry goes right below this comment -->
+
+  <div class="release">
+    <h2>v1.0.0</h2>
+    <p class="date">First stable release.</p>
+    <ul>
+      <li>Two independent search areas: Timesheet (search by date range, worklogs grouped by day) and My Items (search by date range and project, with status, issue type and text filters).</li>
+      <li>Worklog descriptions shown alongside logged hours, and a trailing list of issues with nothing logged in the period.</li>
+      <li>Read-only summary of the current results, opened in a new tab for copying or printing.</li>
+      <li>Connection stored in memory only by default; optional encrypted persistence across browser restarts via "Stay connected on this device".</li>
+    </ul>
+    <a class="download" href="https://github.com/LucasLiachi/jira-timesheet-viewer/releases/tag/v1.0.0">Download this version →</a>
+  </div>
+
+  <footer>
+    <a href="index.html">← Privacy Policy</a> · Source code: <a href="https://github.com/LucasLiachi/jira-timesheet-viewer">github.com/LucasLiachi/jira-timesheet-viewer</a>
+  </footer>
+</main>
+</body>
+</html>
